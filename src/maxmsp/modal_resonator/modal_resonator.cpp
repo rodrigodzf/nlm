@@ -1,12 +1,15 @@
 #include "c74_min.h"
 #include "c74_min_attribute.h"
 #include "c74_min_operator_sample.h"
+#include "c74_min_queue.h"
 #include "matioCpp/MultiDimensionalArray.h"
 #include <cmath>
 #include <Eigen/Dense>
 #include <matioCpp/matioCpp.h>
 #include <vk_utils/TimeIntegrators.h>
 #include <vk_utils/Parameters.h>
+#include <mutex>
+#include <atomic>
 using namespace c74::min;
 
 class modal_resonator : public object<modal_resonator>, public sample_operator<1, 1> {
@@ -19,8 +22,17 @@ public:
     // Constructor
     modal_resonator(const atoms& args = {}) {
         // Initialize any variables or parameters here
-        calculate_coefficients();
+        // calculate_coefficients();
+
+        m_lambda_mu = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
+        m_gamma2_mu = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
+        reset_state();
+
     }
+    queue<> m_queue {this, MIN_FUNCTION {
+        calculate_coefficients();
+        return {};
+    }};
 
     // Inlets and outlets
     inlet<>  input    { this, "(signal) Input to the modal resonator", "signal" };
@@ -66,6 +78,7 @@ public:
         setter { MIN_FUNCTION {
             cout << "Setting poisson_ratio to " << args[0] << endl;
             m_plate_parameters.nu = args[0];
+            calculate_coefficients();
             return {
                 m_plate_parameters.nu
             };
@@ -78,6 +91,7 @@ public:
         setter { MIN_FUNCTION {
             cout << "Setting thickness to " << args[0] << endl;
             m_plate_parameters.h = args[0];
+            calculate_coefficients();
             return {
                 m_plate_parameters.h
             };
@@ -114,6 +128,7 @@ public:
         setter { MIN_FUNCTION {
             cout << "Setting density to " << args[0] << endl;
             m_plate_parameters.rho = args[0];
+            calculate_coefficients();
             return {
                 m_plate_parameters.rho
             };
@@ -126,32 +141,35 @@ public:
         setter { MIN_FUNCTION {
             cout << "Setting youngs_modulus to " << args[0] << endl;
             m_plate_parameters.E = static_cast<double>(args[0]) * 1e9;
+            calculate_coefficients();
             return {
-                m_plate_parameters.E
+                static_cast<double>(args[0])
             };
         } }
     };
 
-    attribute<number> frequency_independent_loss { this, "frequency_independent_loss", 4.2e-6,
+    attribute<number> frequency_independent_loss { this, "frequency_independent_loss", 0.0042,
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
             cout << "Setting frequency_independent_loss to " << args[0] << endl;
-            m_plate_parameters.d1 = args[0];
+            m_plate_parameters.d1 = static_cast<double>(args[0]) * 1e-3;
+            calculate_coefficients();
             return {
-                m_plate_parameters.d1
+                m_plate_parameters.d1 / 1e-3  // Convert back to normalized range for display
             };
         } }
     };
 
-    attribute<number> frequency_dependent_loss { this, "frequency_dependent_loss", 2.3e-3,
+    attribute<number> frequency_dependent_loss { this, "frequency_dependent_loss", 0.0023,
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
             cout << "Setting frequency_dependent_loss to " << args[0] << endl;
-            m_plate_parameters.d3 = args[0];
+            m_plate_parameters.d3 = static_cast<double>(args[0]) * 1e-3;
+            calculate_coefficients();
             return {
-                m_plate_parameters.d3
+                m_plate_parameters.d3 / 1e-3  // Convert back to normalized range for display
             };
         } }
     };
@@ -162,6 +180,7 @@ public:
         setter { MIN_FUNCTION {
             cout << "Setting surface tension to " << args[0] << endl;
             m_plate_parameters.Ts0 = args[0];
+            calculate_coefficients();
             return {
                 m_plate_parameters.Ts0
             };
@@ -268,7 +287,6 @@ public:
     message<> set_couplings_and_eigenvalues { this, "set_couplings_and_eigenvalues",
         [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
             
-            
             // Load data from MATLAB file
             std::string filename = args[0];
             matioCpp::File file(filename);
@@ -324,24 +342,25 @@ public:
 
 
             // print m_plate_parameters
-            cout << "m_plate_parameters: " << m_plate_parameters << endl;
-            m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
-            m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
+            // cout << "m_plate_parameters: " << m_plate_parameters << endl;
+            // m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
+            // m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
 
-            cout << "omega_mu: " << m_omega_mu_squared.cwiseSqrt() << endl;
-            cout << "gamma2_mu: " << m_gamma2_mu << endl;
+            // cout << "omega_mu: " << m_omega_mu_squared.cwiseSqrt() << endl;
+            // cout << "gamma2_mu: " << m_gamma2_mu << endl;
 
-            m_A_inv = A_inv_vector(m_dt, m_gamma2_mu);
-            m_B = B_vector(m_dt, m_omega_mu_squared).array() * m_A_inv.array();
-            m_C = C_vector(m_dt, m_gamma2_mu).array() * m_A_inv.array();
+            // m_A_inv = A_inv_vector(m_dt, m_gamma2_mu);
+            // m_B = B_vector(m_dt, m_omega_mu_squared).array() * m_A_inv.array();
+            // m_C = C_vector(m_dt, m_gamma2_mu).array() * m_A_inv.array();
 
-            cout << "A_inv: " << m_A_inv << endl;
-            cout << "B: " << m_B << endl;
-            cout << "C: " << m_C << endl;
 
-            cout << "m_n_modes: " << m_n_modes << endl;
+            // cout << "A_inv: " << m_A_inv << endl;
+            // cout << "B: " << m_B << endl;
+            // cout << "C: " << m_C << endl;
 
-            reset_state();
+            // cout << "m_n_modes: " << m_n_modes << endl;
+
+            // reset_state();
 
             // test the operator() with a few samples
             // sample out = operator()(1.0);
@@ -354,6 +373,8 @@ public:
             // cout << "out4: " << out4 << endl;
 
             m_initialized = true;
+            calculate_coefficients();
+
             return {};
         }
     };
@@ -361,7 +382,6 @@ public:
 
     // DSP perform method (for Max/MSP audio processing)
     sample operator()(sample input) {
-
         if (!m_initialized) {
             return 0.0;
         }
@@ -456,10 +476,10 @@ private:
             m_sampleRate = args[0];
         
         // Recalculate filter coefficients based on new sample rate
-        calculate_coefficients();
+        // calculate_coefficients();
         
         // Reset filter state
-        reset_state();
+        // reset_state();
     }
     
     void trigger() {
@@ -471,21 +491,30 @@ private:
     void reset_state() {
         m_q = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
         m_q_prev = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
+        // m_force_weights = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
+        // m_readout_weights = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
+        // m_lambda_mu = Eigen::Matrix<double, Eigen::Dynamic, 1>::Zero(m_n_modes);
+        // m_H = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>::Zero(m_n_modes, m_n_modes);
+        // m_phi = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>::Zero(m_n_modes, m_n_modes);
         // m_y1 = 0.0;
         // m_y2 = 0.0;
     }
     
+    // Thread-safe coefficient management
+    std::mutex m_coeff_mutex;
+
     void calculate_coefficients() {
-        // // Convert frequency to normalized frequency (0-1)
-        // double omega = 2.0 * M_PI * frequency / m_sampleRate;
+        if (!m_initialized) {
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(m_coeff_mutex);
         
-        // // Calculate coefficients for a resonant filter
-        // double r = decay;
-        // m_a1 = -2.0 * r * cos(omega);
-        // m_a2 = r * r;
-        // m_b0 = 1.0 - r * r;  // Scale factor for unity gain at resonance
-        
-        // m_initialized = true;
+        m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
+        m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
+        m_A_inv = A_inv_vector(m_dt, m_gamma2_mu);
+        m_B = B_vector(m_dt, m_omega_mu_squared).array() * m_A_inv.array();
+        m_C = C_vector(m_dt, m_gamma2_mu).array() * m_A_inv.array();
     }
 
     // Private member variables
@@ -498,7 +527,7 @@ private:
     double m_dt = 1.0 / m_sampleRate;
 
     bool m_initialized = false;
-    int m_n_modes = 0;
+    int m_n_modes = 10;
 
     PlateParameters m_plate_parameters;
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m_phi;

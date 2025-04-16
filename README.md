@@ -27,6 +27,13 @@ This package provides a set of Max/MSP externals for creating and manipulating m
 - C++ compiler with C++17 support
 - Max/MSP SDK (included as submodule)
 
+### Install dependencies
+
+```
+brew install libmatio
+brew install eigen
+```
+
 ### Build Instructions
 
 1. Clone the repository with submodules:
