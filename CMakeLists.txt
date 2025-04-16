@@ -51,7 +51,17 @@ set(C74_MIN_API_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/min-api)
 include(${C74_MIN_API_DIR}/script/min-package.cmake)
 
 # disable warnings for min-api
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -Wno-non-template-friend")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(
+        -Wno-multichar 
+        -Wno-non-template-friend
+    )
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(
+        -Wno-deprecated-declarations
+        -Wno-unused-private-field
+    )
+endif()
 
 #### Max SDK setup
 

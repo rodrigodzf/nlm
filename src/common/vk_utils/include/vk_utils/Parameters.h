@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <Eigen/Dense>
+#include <iostream>
 
 // Base class for all parameter types
 class PhysicalParameters {
@@ -13,6 +14,15 @@ public:
 
     // Virtual method for getting bending stiffness (implemented by derived classes)
     virtual double bending_stiffness() const = 0;
+
+    // Virtual method for printing parameters
+    virtual void print(std::ostream& os) const = 0;
+
+    // Friend operator for printing
+    friend std::ostream& operator<<(std::ostream& os, const PhysicalParameters& params) {
+        params.print(os);
+        return os;
+    }
 };
 
 class StringParameters : public PhysicalParameters {
@@ -88,6 +98,18 @@ public:
     double bending_stiffness() const override {
         return E * I;
     }
+
+    void print(std::ostream& os) const override {
+        os << "String Parameters:\n"
+           << "  Cross section area (A): " << A << " m²\n"
+           << "  Moment of inertia (I): " << I << " m⁴\n"
+           << "  Density (rho): " << rho << " kg/m³\n"
+           << "  Young's modulus (E): " << E << " Pa\n"
+           << "  Frequency independent loss (d1): " << d1 << " kg/(ms)\n"
+           << "  Frequency dependent loss (d3): " << d3 << " kg m/s\n"
+           << "  Tension (Ts0): " << Ts0 << " N\n"
+           << "  Length: " << length << " m";
+    }
 };
 
 class PlateParameters : public PhysicalParameters {
@@ -95,12 +117,12 @@ public:
     double h{5e-4};         // m           Thickness
     double l1{0.2};         // m           Width
     double l2{0.3};         // m           Height
-    double rho{7.8e3};      // kg/m³       Density
+    double rho{7850};      // kg/m³       Density
     double E{2e12};         // Pa          Young's modulus
     double nu{0.3};         //             Poisson's ratio
-    double d1{4.2e-2};      //             Frequency independent loss
+    double d1{4.2e-6};      //             Frequency independent loss
     double d3{2.3e-3};      //             Frequency dependent loss
-    double Ts0{100};        // N/m         Surface Tension
+    double Ts0{0};        // N/m         Surface Tension
 
     // Property implementations
     double density() const override {
@@ -109,6 +131,19 @@ public:
 
     double bending_stiffness() const override {
         return E * std::pow(h, 3) / (12 * (1 - nu * nu));
+    }
+
+    void print(std::ostream& os) const override {
+        os << "Plate Parameters:\n"
+           << "  Thickness (h): " << h << " m\n"
+           << "  Width (l1): " << l1 << " m\n"
+           << "  Height (l2): " << l2 << " m\n"
+           << "  Density (rho): " << rho << " kg/m³\n"
+           << "  Young's modulus (E): " << E << " Pa\n"
+           << "  Poisson's ratio (nu): " << nu << "\n"
+           << "  Frequency independent loss (d1): " << d1 << "\n"
+           << "  Frequency dependent loss (d3): " << d3 << "\n"
+           << "  Surface Tension (Ts0): " << Ts0 << " N/m";
     }
 };
 
@@ -145,6 +180,20 @@ public:
         params.d3 = 5e-4;
         params.Ts0 = 1500;
         return params;
+    }
+
+    void print(std::ostream& os) const override {
+        os << "Circular Drum Head Parameters:\n"
+           << "  Thickness (h): " << h << " m\n"
+           << "  Radius (r0): " << r0 << " m\n"
+           << "  Moment of inertia (I): " << I << " m⁴\n"
+           << "  Density (rho): " << rho << " kg/m³\n"
+           << "  Young's modulus (E): " << E << " Pa\n"
+           << "  Poisson's ratio (nu): " << nu << "\n"
+           << "  Frequency independent loss (d1): " << d1 << " kg/(m² s)\n"
+           << "  Frequency dependent loss (d3): " << d3 << " kg/s\n"
+           << "  Surface Tension (Ts0): " << Ts0 << " N/m\n"
+           << "  Fundamental frequency (f0): " << f0 << " Hz";
     }
 };
 
