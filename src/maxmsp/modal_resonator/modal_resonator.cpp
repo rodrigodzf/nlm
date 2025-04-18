@@ -1,4 +1,5 @@
 #include "c74_min.h"
+#include "c74_min_api.h"
 #include "c74_min_attribute.h"
 #include "c74_min_operator_sample.h"
 #include "c74_min_queue.h"
@@ -8,6 +9,7 @@
 #include <matioCpp/matioCpp.h>
 #include <vk_utils/TimeIntegrators.h>
 #include <vk_utils/Parameters.h>
+#include <vk_utils/FTM.h>
 #include <mutex>
 #include <atomic>
 using namespace c74::min;
@@ -26,8 +28,8 @@ public:
         // Initialize any variables or parameters here
         // calculate_coefficients();
 
-        m_lambda_mu = Vector::Zero(m_n_modes);
-        m_gamma2_mu = Vector::Zero(m_n_modes);
+        m_lambda_mu = Vector::Zero(m_n_phi);
+        m_gamma2_mu = Vector::Zero(m_n_phi);
         reset_state();
 
     }
@@ -60,7 +62,7 @@ public:
         } }
     };
 
-    attribute<numbers> force_position { this, "force_position", {{0.05, 0.05}},
+    attribute<numbers> force_position { this, "force_position", {{0.5, 0.5}},
         description {"Force position (0-1)"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -72,7 +74,7 @@ public:
         } }
     };
 
-    attribute<numbers> readout_position { this, "readout_position", {{0.1, 0.1}},
+    attribute<numbers> readout_position { this, "readout_position", {{0.5, 0.5}},
         description {"Readout position (0-1)"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -160,7 +162,7 @@ public:
         } }
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "frequency_independent_loss", 0.5,
+    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "frequency_independent_loss", 0.01,
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -173,7 +175,7 @@ public:
         } }
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "frequency_dependent_loss", 0.5,
+    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "frequency_dependent_loss", 0.01,
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -220,25 +222,19 @@ public:
             
             matioCpp::MultiDimensionalArray<double> H_mat = file.read("H").asMultiDimensionalArray<double>();
             matioCpp::Vector<double> lambda_mu_mat = file.read("lambda_mu").asVector<double>();
-            matioCpp::Element<double> ny_elem = file.read("ny").asElement<double>();
-            matioCpp::Element<double> nx_elem = file.read("nx").asElement<double>();
-            matioCpp::MultiDimensionalArray<double> phi_mat = file.read("phi").asMultiDimensionalArray<double>();
-            
+            matioCpp::Vector<double> selected_indices_x = file.read("selected_indices_x").asVector<double>();
+            matioCpp::Vector<double> selected_indices_y = file.read("selected_indices_y").asVector<double>();
 
-            m_nx_elem = nx_elem;
-            m_ny_elem = ny_elem;
             m_lambda_mu = matioCpp::to_eigen(lambda_mu_mat);
 
-            cout << "nx_elem: " << nx_elem << endl;
-            cout << "ny_elem: " << ny_elem << endl;
             // get the size of lambda_mu
             int size_lambda_mu = m_lambda_mu.size();
             cout << "Size of lambda_mu: " << size_lambda_mu << endl;
-            m_n_modes = size_lambda_mu;
 
             // convert to Eigen::Matrix
-            m_H = Eigen::Map<Matrix>(H_mat.data(), m_n_modes * m_n_modes, m_n_modes);
-            m_phi = Eigen::Map<Matrix>(phi_mat.data(), phi_mat.dimensions()[0], phi_mat.dimensions()[1]);
+            m_H = Eigen::Map<Matrix>(H_mat.data(), m_n_psi * m_n_phi, m_n_phi);
+            m_selected_indices_x = matioCpp::to_eigen(selected_indices_x);
+            m_selected_indices_y = matioCpp::to_eigen(selected_indices_y);
 
             m_initialized = true;
             calculate_coefficients();
@@ -254,12 +250,12 @@ public:
             return 0.0;
         }
 
-        sample out = 0.0;
+        std::unique_lock<std::mutex> lock {m_coeff_mutex};
 
         // Each input is a scalar which weights the modal gains at the excitation position
         auto x = input * m_force_weights;
 
-        Vector t0_flat = m_H * m_q;
+        Vector t0_flat = m_H_scaled * m_q;
         Matrix t0 = Eigen::Map<Matrix>(t0_flat.data(), m_q.size(), m_q.size());
         Vector t2 = t0 * m_q;
         Vector nl = t0.transpose() * t2;
@@ -271,8 +267,9 @@ public:
         m_q = q_next;
 
         // Get a scalar output at the readout position
-        out = m_readout_weights.dot(q_next);
+        sample out = m_readout_weights.dot(q_next);
 
+        lock.unlock();
         return out;
     }
 
@@ -287,12 +284,11 @@ private:
     }
 
     void reset_state() {
-        m_q = Vector::Zero(m_n_modes);
-        m_q_prev = Vector::Zero(m_n_modes);
+        m_q = Vector::Zero(m_n_phi);
+        m_q_prev = Vector::Zero(m_n_phi);
     }
     
-    // Thread-safe coefficient management
-    std::mutex m_coeff_mutex;
+
 
     void calculate_coefficients() {
         if (!m_initialized) {
@@ -309,11 +305,19 @@ private:
         m_plate_parameters.d3 = frequency_dependent_loss;
         m_plate_parameters.Ts0 = surface_tension;
 
-        // std::lock_guard<std::mutex> lock(m_coeff_mutex);
         
         m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
         m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
 
+        // These lines will cause a race condition and crash the program
+        double plate_norm = m_plate_parameters.l1 * m_plate_parameters.l2 * 0.25;
+        double scale = (m_plate_parameters.E * plate_norm) / (2.0 * m_plate_parameters.density());
+
+        // std::lock_guard<std::mutex> lock(m_coeff_mutex);
+        std::unique_lock<std::mutex> lock {m_coeff_mutex};
+
+        // m_H *= std::sqrt(scale);
+        m_H_scaled = m_H * std::sqrt(scale);
         calculate_coefficients_tf(
             m_gamma2_mu,
             m_omega_mu_squared,
@@ -322,6 +326,8 @@ private:
             m_A_inv,
             m_dt
         );
+        lock.unlock();
+
     }
 
     void calculate_modal_weights() {
@@ -329,26 +335,36 @@ private:
             return;
         }
 
-        // std::lock_guard<std::mutex> lock(m_coeff_mutex);
 
         // phi has shape (ny * nx, n_modes) but we need to index it with ny and nx
-        int force_nx = static_cast<int>(std::round(force_position[0] * m_nx_elem));
-        int force_ny = static_cast<int>(std::round(force_position[1] * m_ny_elem));
-        int force_row_idx = force_ny * m_nx_elem + force_nx;
+        // int force_nx = static_cast<int>(std::round(force_position[0] * m_nx_elem));
+        // int force_ny = static_cast<int>(std::round(force_position[1] * m_ny_elem));
+        // int force_row_idx = force_ny * m_nx_elem + force_nx;
         // cout << "force_row_idx: " << force_row_idx << endl;
 
-        int readout_nx = static_cast<int>(std::round(readout_position[0] * m_nx_elem));
-        int readout_ny = static_cast<int>(std::round(readout_position[1] * m_ny_elem));
-        int readout_row_idx = readout_ny * m_nx_elem + readout_nx;
+        // int readout_nx = static_cast<int>(std::round(readout_position[0] * m_nx_elem));
+        // int readout_ny = static_cast<int>(std::round(readout_position[1] * m_ny_elem));
+        // int readout_row_idx = readout_ny * m_nx_elem + readout_nx;
         // cout << "readout_row_idx: " << readout_row_idx << endl;
-        m_force_weights = m_phi.row(force_row_idx);
-        m_readout_weights = m_phi.row(readout_row_idx);
+        // m_force_weights = m_phi.row(force_row_idx);
+        // m_readout_weights = m_phi.row(readout_row_idx);
+        double plate_norm = m_plate_parameters.l1 * m_plate_parameters.l2 * 0.25;
 
-        // cout << "force_weights: " << m_force_weights << endl;
-        // cout << "readout_weights: " << m_readout_weights << endl;
+        std::unique_lock<std::mutex> lock {m_coeff_mutex};
 
-        // divide m_force_weights by m_plate_parameters.density
-        m_force_weights = m_force_weights / m_plate_parameters.density();
+        m_force_weights = ftm::evaluate_rectangular_eigenfunctions(
+            m_selected_indices_x, m_selected_indices_y, 
+            force_position[0] * m_plate_parameters.l1, force_position[1] * m_plate_parameters.l2, 
+            m_plate_parameters.l1, m_plate_parameters.l2
+        ) / (plate_norm * m_plate_parameters.density());
+
+        m_readout_weights = ftm::evaluate_rectangular_eigenfunctions(
+            m_selected_indices_x, m_selected_indices_y, 
+            readout_position[0] * m_plate_parameters.l1, readout_position[1] * m_plate_parameters.l2, 
+            m_plate_parameters.l1, m_plate_parameters.l2
+        );
+
+        lock.unlock();
 
     }
 
@@ -356,13 +372,20 @@ private:
     double m_sampleRate = 44100.0;
     double m_dt = 1.0 / m_sampleRate;
 
+    // Thread-safe coefficient management
+
+    std::mutex m_coeff_mutex;
+    
     bool m_initialized = false;
-    int m_n_modes = 10;
-    double m_nx_elem = 10;
-    double m_ny_elem = 10;
+
+    int m_n_psi = 10;
+    int m_n_phi = 10;
     PlateParameters m_plate_parameters;
+    Vector m_selected_indices_x;
+    Vector m_selected_indices_y;
     Matrix m_phi;
     Matrix m_H;
+    Matrix m_H_scaled;
     Vector m_lambda_mu;
     Vector m_gamma2_mu;
     Vector m_omega_mu_squared;
