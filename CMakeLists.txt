@@ -20,11 +20,14 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Set static build preference globally
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
+
 # macOS specific settings
 if(APPLE)
     if(${CMAKE_GENERATOR} MATCHES "Xcode")
         if(${XCODE_VERSION} VERSION_LESS 10)
-            message(STATUS "Xcode 10 or higher is required. Please install from the Mac App Store.")
+            message(STATUS "Xcode 10 or higher is required. Please install from the Mac Store.")
             return()
         elseif(${XCODE_VERSION} VERSION_GREATER_EQUAL 12)
             set(C74_BUILD_FAT YES)
@@ -83,12 +86,48 @@ CPMAddPackage(
     "CXXOPTS_BUILD_TESTS Off"
 )
 
+# Find system-installed libmatio
+find_path(MATIO_INCLUDE_DIR matio.h 
+    PATHS /opt/homebrew/include
+    PATH_SUFFIXES matio
+    NO_DEFAULT_PATH
+)
+
+find_library(MATIO_LIBRARY 
+    NAMES matio
+    PATHS /opt/homebrew/opt/libmatio/lib
+    NO_DEFAULT_PATH
+)
+
+# Create an imported target for matio
+if(MATIO_INCLUDE_DIR AND MATIO_LIBRARY)
+    if(NOT TARGET MATIO::MATIO)
+        add_library(MATIO::MATIO SHARED IMPORTED)
+        set_target_properties(MATIO::MATIO PROPERTIES
+            IMPORTED_LOCATION "${MATIO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${MATIO_INCLUDE_DIR}"
+        )
+        message(STATUS "Found libmatio: ${MATIO_LIBRARY}")
+        message(STATUS "Found libmatio headers: ${MATIO_INCLUDE_DIR}")
+        set(MatIO_FOUND TRUE)
+    endif()
+else()
+    message(FATAL_ERROR "libmatio not found. Install with: brew install libmatio")
+endif()
+
+# Get the actual dylib file path to copy later
+get_filename_component(MATIO_DYLIB_PATH "${MATIO_LIBRARY}" REALPATH)
+message(STATUS "Matio dylib to copy: ${MATIO_DYLIB_PATH}")
+
 CPMAddPackage(
     NAME matio-cpp
     GIT_TAG v0.2.6
     VERSION 0.2.6
     GITHUB_REPOSITORY ami-iit/matio-cpp
     SOURCE_DIR ${LIB_DIR}/matio-cpp
+    OPTIONS
+    "BUILD_TESTING OFF"
+    "MATIOCPP_BUILD_SHARED_LIBRARY OFF" 
 )
 
 find_package(Eigen3 REQUIRED)
@@ -110,11 +149,13 @@ message(STATUS "Found BLAS: ${BLAS_LIBRARIES}")
 message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
 message(STATUS "Found ARPACK: ${ARPACK_LIBRARIES}")
 
-# Set RPATH
-# set(CMAKE_MACOSX_RPATH TRUE)
-# set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-# set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
-# set(CMAKE_INSTALL_RPATH "@loader_path")
+# Set RPATH to look for libraries in the same directory as the executable
+if(APPLE)
+    set(CMAKE_MACOSX_RPATH TRUE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
+    set(CMAKE_INSTALL_RPATH "@loader_path")
+endif()
 
 # Add subdirectories for your Max objects
 add_subdirectory(src/maxmsp/plate_tilde)
