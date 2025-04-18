@@ -1,22 +1,23 @@
 #include "c74_min_unittest.h"   // Unit test framework
 
 // Include the header file, not the cpp file
-#include "modal_resonator.cpp"
+#include "plate_tilde.cpp"
+#include "version.h"
 
 using namespace c74::min;
 using namespace c74::max;
 
-// Unit test for the modal_resonator object
-SCENARIO("modal_resonator object basic tests") {
+// Unit test for the plate_tilde object
+SCENARIO("plate_tilde object basic tests") {
     ext_main(nullptr);    // every unit test must call ext_main() once to configure the class
 
     // Mock atoms for testing
     atoms test_atoms = {440.0};
     atoms empty_atoms;
     
-    GIVEN("A new modal_resonator object instance") {
-        // test_wrapper<modal_resonator> my_obj;
-        // modal_resonator& my_object = my_obj;
+    GIVEN("A new plate_tilde object instance") {
+        // test_wrapper<plate_tilde> my_obj;
+        // plate_tilde& my_object = my_obj;
         
         // // Create a bunch of audio samples for testing
         // const int vector_size = 64;

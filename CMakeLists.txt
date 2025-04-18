@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.19)
 project(modalsim VERSION 0.1.0)
 message(STATUS "Version: ${PROJECT_VERSION}")
 
+# We need to set a version for the package because the min-pretarget.cmake
+# generates a new project per subdirectory
+set(PACKAGE_VERSION ${PROJECT_VERSION})
+
 # Extract package name from directory
 string(REGEX REPLACE "(.*)/" "" THIS_PACKAGE_NAME "${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "This package name is ${THIS_PACKAGE_NAME}")
@@ -113,7 +117,7 @@ message(STATUS "Found ARPACK: ${ARPACK_LIBRARIES}")
 # set(CMAKE_INSTALL_RPATH "@loader_path")
 
 # Add subdirectories for your Max objects
-add_subdirectory(src/maxmsp/modal_resonator)
+add_subdirectory(src/maxmsp/plate_tilde)
 add_subdirectory(src/common/vk_utils)
 add_subdirectory(src/common/test_libs)
 # add_subdirectory(src/common/magpie)
