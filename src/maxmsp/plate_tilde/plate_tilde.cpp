@@ -11,6 +11,7 @@
 #include <vk_utils/TimeIntegrators.h>
 #include <vk_utils/Parameters.h>
 #include <vk_utils/FTM.h>
+#include <vk_utils/LinearInterpolator.h>
 #include "version.h"
 
 using namespace c74::min;
@@ -43,17 +44,6 @@ public:
         calculate_modal_weights();
         return {};
     }};
-
-    attribute<number> sample_rate { this, "sample_rate", 44100.0,
-        description {"Sample rate in Hz"},
-        range { 16000.0, 192000.0 },
-        setter { MIN_FUNCTION {
-            // cout << "Setting sample rate to " << args[0] << endl;
-            m_sampleRate = args[0];
-            m_dt = 1.0 / m_sampleRate;
-            return { m_sampleRate };
-        }}
-    };
 
     attribute<numbers> force_position { this, "force_position", {{0.5, 0.5}},
         description {"Force position (0-1)"},
@@ -161,6 +151,18 @@ public:
         }
     };
 
+    message<> dspsetup {this, "dspsetup",
+        MIN_FUNCTION {
+            m_dt = 1.0 / samplerate();
+            if (m_initialized) {
+                allocate_temp_vectors(); // Ensure temp vectors are allocated with correct size
+            }
+            // unsigned int delta = static_cast<unsigned int>(20.0 * samplerate() / 1000.0);
+            // m_readout_weights_lerp.setDelta(delta);
+            // cout << "Setting interpolation time to " << m_interpolation_time_ms << " ms, delta: " << delta << endl;
+            return {};
+        }
+    };
     message<> set_couplings_and_eigenvalues { this, "set_couplings_and_eigenvalues",
         [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
             std::string filename = args[0];
@@ -187,6 +189,7 @@ public:
             m_selected_indices_y = matioCpp::to_eigen(selected_indices_y);
 
             m_initialized = true;
+            allocate_temp_vectors();
             calculate_coefficients();
             calculate_modal_weights();
             return {};
@@ -200,19 +203,27 @@ public:
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
 
-        auto x = input * m_force_weights;
+        // Use pre-allocated vector for input force calculation
+        m_force_input = input * m_force_weights;
 
-        Vector t0_flat = m_H_scaled * m_q;
-        Matrix t0 = Eigen::Map<Matrix>(t0_flat.data(), m_n_psi, m_n_phi);
-        Vector t2 = t0 * m_q;
-        Vector nl = t0.transpose() * t2;
+        // Use pre-allocated vectors to avoid stack allocations
+        m_t0_flat.noalias() = m_H_scaled * m_q;
+        // Use Eigen::Map to reshape without copying data
+        auto m_t0 = Eigen::Map<Matrix>(m_t0_flat.data(), m_n_psi, m_n_phi);
+        m_t2.noalias() = m_t0 * m_q;
+        m_nl.noalias() = m_t0.transpose() * m_t2;
 
-        Vector q_next = m_B.cwiseProduct(m_q) + m_C.cwiseProduct(m_q_prev) + m_A_inv.cwiseProduct(x - nl);
+        // Use pre-allocated vector for q_next
+        m_q_next.noalias() = m_B.cwiseProduct(m_q) +
+                             m_C.cwiseProduct(m_q_prev) +
+                             m_A_inv.cwiseProduct(m_force_input - m_nl);
         
         m_q_prev = m_q;
-        m_q = q_next;
+        m_q = m_q_next;
 
-        sample out = m_readout_weights.dot(q_next);
+        // Get the interpolated readout weights and use them for output
+        m_current_readout_weights = m_readout_weights_lerp.process();
+        sample out = m_current_readout_weights.dot(m_q);
 
         lock.unlock();
         return out;
@@ -222,6 +233,16 @@ private:
     void reset_state() {
         m_q = Vector::Zero(m_n_phi);
         m_q_prev = Vector::Zero(m_n_phi);
+    }
+    
+    void allocate_temp_vectors() {
+        // Allocate temporary vectors used in audio processing
+        m_t0_flat.resize(m_n_psi * m_n_phi);
+        m_t2.resize(m_n_phi);
+        m_nl.resize(m_n_phi);
+        m_q_next.resize(m_n_phi);
+        m_current_readout_weights.resize(m_n_phi);
+        m_force_input.resize(m_n_phi);  // Pre-allocate vector for input force
     }
     
     void calculate_coefficients() {
@@ -277,17 +298,29 @@ private:
             m_plate_parameters.l1, m_plate_parameters.l2
         ) / (plate_norm * m_plate_parameters.density());
 
-        m_readout_weights = ftm::evaluate_rectangular_eigenfunctions(
+        Vector new_readout_weights = ftm::evaluate_rectangular_eigenfunctions(
             m_selected_indices_x, m_selected_indices_y, 
             readout_position[0] * m_plate_parameters.l1, readout_position[1] * m_plate_parameters.l2, 
             m_plate_parameters.l1, m_plate_parameters.l2
         );
+        
+        // Store the new weights as a target for interpolation
+        if (m_readout_weights_lerp.isFinished()) {
+            // If first time, set the value directly
+            if (m_readout_weights.size() == 0) {
+                m_readout_weights = new_readout_weights;
+                m_readout_weights_lerp.setValue(new_readout_weights);
+            }
+
+            // cout << "Setting target for readout weights" << endl;
+            m_readout_weights_lerp.setTarget(new_readout_weights);
+        }
 
         lock.unlock();
     }
 
-    double m_sampleRate = 44100.0;
-    double m_dt = 1.0 / m_sampleRate;
+    double m_dt = 1.0 / 44100.0;
+    double m_interpolation_time_ms = 10.0;
     bool m_initialized = false;
     int m_n_psi = 10;
     int m_n_phi = 10;
@@ -313,6 +346,17 @@ private:
     
     Vector m_force_weights;
     Vector m_readout_weights;
+    
+    // Add VectorLerp for interpolating readout weights
+    VectorInterpolator<double> m_readout_weights_lerp;
+
+    // Temporary vectors used in sample processing to avoid stack allocations
+    Vector m_t0_flat;
+    Vector m_t2;
+    Vector m_nl;
+    Vector m_q_next;
+    Vector m_current_readout_weights;
+    Vector m_force_input;  // Vector for storing input * m_force_weights
 };
 
 MIN_EXTERNAL(plate_tilde);
