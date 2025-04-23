@@ -30,10 +30,33 @@ public:
         m_lambda_mu = Vector::Zero(m_n_phi);
         m_gamma2_mu = Vector::Zero(m_n_phi);
         reset_state();
+        
+        // Initialize model type
+        if (args.size() > 0) {
+            if (args[0] == "vk") {
+                m_model_type = "vk";
+            } else {
+                m_model_type = "berger";
+            }
+        } else {
+            m_model_type = "berger";  // Default model type
+        }
+        
+        // Update the attribute
+        model_type = m_model_type;
+
+        cout << "Model type: " << m_model_type << endl;
     }
 
     inlet<>  input    { this, "(signal) Input to the modal resonator", "signal" };
     outlet<> output   { this, "(signal) Output from the modal resonator", "signal" };
+
+    attribute<symbol> model_type { this, "model_type", 
+        title {"Model Type"},
+        description {"Plate model type (vk or berger)"},
+        getter { MIN_GETTER_FUNCTION { return { m_model_type }; } },
+        readonly { true }
+    };
 
     queue<> m_queue {this, MIN_FUNCTION {
         calculate_coefficients();
@@ -81,20 +104,20 @@ public:
         }}
     };
     
-    attribute<number> lx { this, "lx", 0.2,
+    attribute<number, threadsafe::no, limit::clamp> lx { this, "lx", 0.2,
         description {"Length in meters"},
-        range { 0.0, 1.0 },
+        range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
-            cout << "Not implemented" << endl;
+            m_queue.set();
             return { args[0] };
         }}
     };
 
-    attribute<number> ly { this, "ly", 0.3,
+    attribute<number, threadsafe::no, limit::clamp> ly { this, "ly", 0.3,
         description {"Width in meters"},
-        range { 0.0, 1.0 },
+        range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
-            cout << "Not implemented" << endl;
+            m_queue.set();
             return { args[0] };
         }}
     };
@@ -145,7 +168,7 @@ public:
     };  
     
     message<> maxclass_setup { this, "maxclass_setup",
-        MIN_FUNCTION {
+        [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
             cout << "plate~ - " << VERSION << " - 2025 - Rodrigo Diaz" << endl;
             return {};
         }
@@ -206,14 +229,12 @@ public:
         // Use pre-allocated vector for input force calculation
         m_force_input = input * m_force_weights;
 
-        // Use pre-allocated vectors to avoid stack allocations
-        m_t0_flat.noalias() = m_H_scaled * m_q;
-        // Use Eigen::Map to reshape without copying data
-        auto m_t0 = Eigen::Map<Matrix>(m_t0_flat.data(), m_n_psi, m_n_phi);
-        m_t2.noalias() = m_t0 * m_q;
-        m_nl.noalias() = m_t0.transpose() * m_t2;
+        if (m_model_type == "vk") {
+            calculate_nonlinear_vk(m_H_scaled, m_q, m_nl, m_n_psi, m_n_phi);
+        } else if (m_model_type == "berger") {
+            calculate_nonlinear_berger(m_lambda_mu, m_plate_tau_with_norms, m_q, m_nl);
+        }
 
-        // Use pre-allocated vector for q_next
         m_q_next.noalias() = m_B.cwiseProduct(m_q) +
                              m_C.cwiseProduct(m_q_prev) +
                              m_A_inv.cwiseProduct(m_force_input - m_nl);
@@ -233,6 +254,8 @@ private:
     void reset_state() {
         m_q = Vector::Zero(m_n_phi);
         m_q_prev = Vector::Zero(m_n_phi);
+        m_nl = Vector::Zero(m_n_phi);
+        m_q_next = Vector::Zero(m_n_phi);
     }
     
     void allocate_temp_vectors() {
@@ -265,11 +288,19 @@ private:
         m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
 
         double plate_norm = m_plate_parameters.l1 * m_plate_parameters.l2 * 0.25;
-        double scale = (m_plate_parameters.E * plate_norm) / (2.0 * m_plate_parameters.density());
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
-        
-        m_H_scaled = m_H_original * std::sqrt(scale);
+
+        if (m_model_type == "berger") {
+            double plate_tau = (m_plate_parameters.E * m_plate_parameters.h) / (
+                2.0 * m_plate_parameters.l1 * m_plate_parameters.l2 * (1.0 - m_plate_parameters.nu * m_plate_parameters.nu)
+            );
+            plate_tau = plate_tau / m_plate_parameters.density() / plate_norm;
+            m_plate_tau_with_norms = plate_tau * m_lambda_mu;
+        } else if (m_model_type == "vk") {
+            double scale = (m_plate_parameters.E * plate_norm) / (2.0 * m_plate_parameters.density());
+            m_H_scaled = m_H_original * std::sqrt(scale);
+        }
         
         calculate_coefficients_tf(
             m_gamma2_mu,
@@ -333,6 +364,8 @@ private:
     
     Matrix m_H_original;
     Matrix m_H_scaled;
+    Vector m_plate_tau_with_norms;
+
     Vector m_lambda_mu;
     Vector m_gamma2_mu;
     Vector m_omega_mu_squared;
@@ -357,6 +390,8 @@ private:
     Vector m_q_next;
     Vector m_current_readout_weights;
     Vector m_force_input;  // Vector for storing input * m_force_weights
+    
+    std::string m_model_type = "berger";  // Default model type
 };
 
 MIN_EXTERNAL(plate_tilde);

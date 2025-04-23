@@ -3,6 +3,35 @@
 #include <Eigen/Dense>
 
 template <typename T>
+void calculate_nonlinear_berger(
+    const Eigen::VectorX<T>& lambda_mu,
+    const Eigen::VectorX<T>& tau_with_norms,
+    const Eigen::VectorX<T>& q,
+    Eigen::VectorX<T>& nl
+)
+{
+    // dot product of tau_with_norms and q^2
+    T scalar = (tau_with_norms.array() * q.array().square()).sum();
+    
+    // Apply scalar to the product
+    nl.noalias() = lambda_mu.cwiseProduct(q) * scalar;
+}
+
+
+template <typename T>
+void calculate_nonlinear_vk(
+    const Eigen::MatrixX<T>& H_scaled,
+    const Eigen::VectorX<T>& q,
+    Eigen::VectorX<T>& nl,
+    int n_psi,
+    int n_phi
+)
+{
+    auto t0 = Eigen::Map<const Eigen::MatrixX<T>>((H_scaled * q).eval().data(), n_psi, n_phi);
+    nl.noalias() = t0.transpose() * (t0 * q);
+}
+
+template <typename T>
 Eigen::VectorX<T> calculate_nonlinear_term_eigen(
     const Eigen::MatrixX<T>& H_reshaped,
     const Eigen::VectorX<T>& q
