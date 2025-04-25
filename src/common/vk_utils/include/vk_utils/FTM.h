@@ -35,7 +35,7 @@ Eigen::VectorX<T> string_eigenvalues(int n_modes, T length) {
  */
 template <typename T>
 Eigen::VectorX<T> evaluate_string_eigenfunctions(
-    const Eigen::Matrix<int, Eigen::Dynamic, 1>& indices,
+    const Eigen::VectorX<T>& indices,
     T position,
     T length
 ) {

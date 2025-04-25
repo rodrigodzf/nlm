@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     );
     
     // 4. Get the readout weights
-    Eigen::Matrix<int, Eigen::Dynamic, 1> mu(n_modes);
+    Eigen::Matrix<float, Eigen::Dynamic, 1> mu(n_modes);
     for (int i = 0; i < n_modes; ++i) {
         mu(i) = i + 1;  // Mode indices starting from 1
     }
