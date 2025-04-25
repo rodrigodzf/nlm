@@ -58,13 +58,9 @@ public:
         readonly { true }
     };
 
-    queue<> m_queue {this, MIN_FUNCTION {
-        calculate_coefficients();
-        return {};
-    }};
-
-    queue<> update_modal_weights {this, MIN_FUNCTION {
-        calculate_modal_weights();
+    // Single update queue for all parameter changes
+    queue<> update_queue {this, MIN_FUNCTION {
+        update_all_parameters();
         return {};
     }};
 
@@ -72,7 +68,7 @@ public:
         description {"Force position (0-1)"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
-            update_modal_weights.set();
+            update_queue.set();
             return { args };
         }}
     };
@@ -81,7 +77,7 @@ public:
         description {"Readout position (0-1)"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
-            update_modal_weights.set();
+            update_queue.set();
             return { args };
         }}
     };
@@ -90,7 +86,7 @@ public:
         description {"Poisson's ratio"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -99,7 +95,7 @@ public:
         description {"Thickness in meters"},
         range { 1e-4, 1e-2 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -108,7 +104,7 @@ public:
         description {"Length in meters"},
         range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -117,7 +113,7 @@ public:
         description {"Width in meters"},
         range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -126,7 +122,7 @@ public:
         description {"Density in kg/m^3"},
         range { 1000.0, 10000.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -135,7 +131,7 @@ public:
         description {"Young's modulus in GPa"},
         range { 100.0, 10000.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -144,7 +140,7 @@ public:
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -153,7 +149,7 @@ public:
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };
@@ -162,7 +158,7 @@ public:
         description {"Surface tension in N/m"},
         range { 0.0, 1000.0 },
         setter { MIN_FUNCTION {
-            m_queue.set();
+            update_queue.set();
             return { args[0] };
         }}
     };  
@@ -177,12 +173,11 @@ public:
     message<> dspsetup {this, "dspsetup",
         MIN_FUNCTION {
             m_dt = 1.0 / samplerate();
+            // Don't reset initialized flag if data is loaded from file
             if (m_initialized) {
                 allocate_temp_vectors(); // Ensure temp vectors are allocated with correct size
+                update_queue.set();       // Update parameters but preserve loaded data
             }
-            // unsigned int delta = static_cast<unsigned int>(20.0 * samplerate() / 1000.0);
-            // m_readout_weights_lerp.setDelta(delta);
-            // cout << "Setting interpolation time to " << m_interpolation_time_ms << " ms, delta: " << delta << endl;
             return {};
         }
     };
@@ -211,10 +206,10 @@ public:
             m_selected_indices_x = matioCpp::to_eigen(selected_indices_x);
             m_selected_indices_y = matioCpp::to_eigen(selected_indices_y);
 
-            m_initialized = true;
+            m_data_loaded = true;
+            reset_state();
             allocate_temp_vectors();
-            calculate_coefficients();
-            calculate_modal_weights();
+            update_queue.set(); // Trigger parameter update after data loading
             return {};
         }
     };
@@ -268,11 +263,15 @@ private:
         m_force_input.resize(m_n_phi);  // Pre-allocate vector for input force
     }
     
-    void calculate_coefficients() {
-        if (!m_initialized) {
-            return;
+    // Unified function to update all parameters
+    void update_all_parameters() {
+        if (!m_data_loaded) {
+            return; // Can't update without data loaded from file
         }
 
+        std::unique_lock<std::mutex> lock {m_coeff_mutex};
+        
+        // Step 1: Update plate parameters
         m_plate_parameters.nu = poisson_ratio;
         m_plate_parameters.h = thickness;
         m_plate_parameters.l1 = lx;
@@ -282,15 +281,14 @@ private:
         m_plate_parameters.d1 = frequency_independent_loss;
         m_plate_parameters.d3 = frequency_dependent_loss;
         m_plate_parameters.Ts0 = surface_tension;
-
         
+        // Step 2: Calculate modal coefficients
         m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
         m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
-
+        
         double plate_norm = m_plate_parameters.l1 * m_plate_parameters.l2 * 0.25;
-
-        std::unique_lock<std::mutex> lock {m_coeff_mutex};
-
+        
+        // Step 3: Model-specific calculations
         if (m_model_type == "berger") {
             double plate_tau = (m_plate_parameters.E * m_plate_parameters.h) / (
                 2.0 * m_plate_parameters.l1 * m_plate_parameters.l2 * (1.0 - m_plate_parameters.nu * m_plate_parameters.nu)
@@ -302,6 +300,7 @@ private:
             m_H_scaled = m_H_original * std::sqrt(scale);
         }
         
+        // Step 4: Calculate time integration coefficients
         calculate_coefficients_tf(
             m_gamma2_mu,
             m_omega_mu_squared,
@@ -311,45 +310,34 @@ private:
             m_dt
         );
         
-        lock.unlock();
-    }
-
-    void calculate_modal_weights() {
-        if (!m_initialized) {
-            return;
-        }
-
-        double plate_norm = m_plate_parameters.l1 * m_plate_parameters.l2 * 0.25;
-
-        std::unique_lock<std::mutex> lock {m_coeff_mutex};
-
+        // Step 5: Calculate force weights
         m_force_weights = ftm::evaluate_rectangular_eigenfunctions(
             m_selected_indices_x, m_selected_indices_y, 
             force_position[0] * m_plate_parameters.l1, force_position[1] * m_plate_parameters.l2, 
             m_plate_parameters.l1, m_plate_parameters.l2
         ) / (plate_norm * m_plate_parameters.density());
 
+        // Step 6: Calculate readout weights
         Vector new_readout_weights = ftm::evaluate_rectangular_eigenfunctions(
             m_selected_indices_x, m_selected_indices_y, 
             readout_position[0] * m_plate_parameters.l1, readout_position[1] * m_plate_parameters.l2, 
             m_plate_parameters.l1, m_plate_parameters.l2
         );
         
-        // Store the new weights as a target for interpolation
         if (m_readout_weights_lerp.isFinished()) {
-            // If first time, set the value directly
             if (m_readout_weights.size() == 0) {
                 m_readout_weights = new_readout_weights;
                 m_readout_weights_lerp.setValue(new_readout_weights);
             }
-
-            // cout << "Setting target for readout weights" << endl;
             m_readout_weights_lerp.setTarget(new_readout_weights);
         }
-
+        
+        // Step 7: Mark as initialized
+        m_initialized = true;
+        
         lock.unlock();
     }
-
+    
     double m_dt = 1.0 / 44100.0;
     double m_interpolation_time_ms = 10.0;
     bool m_initialized = false;
@@ -392,6 +380,9 @@ private:
     Vector m_force_input;  // Vector for storing input * m_force_weights
     
     std::string m_model_type = "berger";  // Default model type
+
+    // Track if data is loaded from file
+    bool m_data_loaded = false;
 };
 
 MIN_EXTERNAL(plate_tilde);
