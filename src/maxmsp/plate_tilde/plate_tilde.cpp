@@ -214,6 +214,28 @@ public:
         }
     };
     
+    message<> info { this, "info",
+        MIN_FUNCTION {
+            std::stringstream ss;
+            ss << "plate~ parameters:" << '\n'
+               << "Model type: " << m_model_type << '\n'
+               << "Thickness: " << thickness << " m" << '\n'
+               << "Dimensions: " << lx << " x " << ly << " m" << '\n'
+               << "Density: " << density << " kg/m³" << '\n'
+               << "Young's modulus: " << youngs_modulus << " GPa" << '\n'
+               << "Poisson's ratio: " << poisson_ratio << '\n'
+               << "Surface tension: " << surface_tension << " N/m" << '\n'
+               << "Loss parameters: " << frequency_independent_loss << " (freq. indep.), " 
+                 << frequency_dependent_loss << " (freq. dep.)" << '\n'
+               << "Force position: (" << force_position[0] << ", " << force_position[1] << ")" << '\n'
+               << "Readout position: (" << readout_position[0] << ", " << readout_position[1] << ")" << '\n'
+               << "Sampling rate: " << samplerate() << " Hz" << '\n'
+               << "Modes: " << m_n_phi;
+            cout << ss.str() << endl;
+            return {};
+        }
+    };
+    
     sample operator()(sample input) {
         if (!m_initialized) {
             return 0.0;
