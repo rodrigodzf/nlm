@@ -86,8 +86,6 @@ if(TARGET ${PROJECT_NAME}_test)
     )
 endif()
 
-
-
 # Copy libmatio from homebrew to the plate~ external's MacOS directory
 if(APPLE)
     # Set the external bundle path

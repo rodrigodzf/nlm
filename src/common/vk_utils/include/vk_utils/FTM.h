@@ -135,4 +135,35 @@ Eigen::VectorX<T> evaluate_rectangular_eigenfunctions(
     return values;
 }
 
+/**
+ * Evaluate rectangular plate eigenfunctions at multiple positions.
+ * 
+ * @param m_indices Vector of mode indices in x direction
+ * @param n_indices Vector of mode indices in y direction
+ * @param positions_x Vector of x positions
+ * @param positions_y Vector of y positions
+ * @param l1 Width of the plate
+ * @param l2 Height of the plate
+ * @return Matrix of eigenfunction values: (modes, positions)
+ */
+template <typename T>
+Eigen::MatrixX<T> evaluate_rectangular_eigenfunctions(
+    const Eigen::VectorX<T>& m_indices,
+    const Eigen::VectorX<T>& n_indices,
+    const Eigen::VectorX<T>& positions_x,
+    const Eigen::VectorX<T>& positions_y,
+    T l1,
+    T l2
+) {
+    int n_modes = m_indices.size();
+    int n_pos = positions_x.size();
+    Eigen::MatrixX<T> values(n_modes, n_pos);
+    for (int p = 0; p < n_pos; ++p) {
+        T a1 = M_PI * positions_x[p] / l1;
+        T a2 = M_PI * positions_y[p] / l2;
+        values.col(p) = (m_indices.array() * a1).sin() * (n_indices.array() * a2).sin();
+    }
+    return values;
+}
+
 } // namespace ftm

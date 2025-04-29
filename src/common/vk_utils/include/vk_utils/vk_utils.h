@@ -23,8 +23,8 @@ void calculate_nonlinear_vk(
     const Eigen::MatrixX<T>& H_scaled,
     const Eigen::VectorX<T>& q,
     Eigen::VectorX<T>& nl,
-    int n_psi,
-    int n_phi
+    const int n_psi,
+    const int n_phi
 )
 {
     auto t0 = Eigen::Map<const Eigen::MatrixX<T>>((H_scaled * q).eval().data(), n_psi, n_phi);

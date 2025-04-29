@@ -162,7 +162,7 @@ public:
         m_q = m_q_next;
 
         // Get the interpolated readout weights and use them for output
-        m_current_readout_weights = m_readout_weights_lerp.process();
+        m_readout_weights_lerp.process(m_current_readout_weights);
         sample out = m_current_readout_weights.dot(m_q);
 
         lock.unlock();

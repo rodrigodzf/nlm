@@ -90,16 +90,20 @@ private:
 template <typename T>
 class VectorInterpolator {
 public:
-    VectorInterpolator() {}
+    VectorInterpolator() : m_initialized(false) {}
     
     void resize(int size, unsigned int delta) {
         m_lerps.resize(size);
         for (auto& lerp : m_lerps) {
             lerp.setup(delta);
         }
+        m_initialized = true;
     }
     
     void setTarget(const Eigen::VectorX<T>& target) {
+        if (!m_initialized) {
+            return;
+        }
         if (m_lerps.size() != target.size()) {
             m_lerps.resize(target.size());
         }
@@ -110,6 +114,9 @@ public:
     }
     
     void setValue(const Eigen::VectorX<T>& value) {
+        if (!m_initialized) {
+            return;
+        }
         if (m_lerps.size() != value.size()) {
             m_lerps.resize(value.size());
         }
@@ -125,12 +132,14 @@ public:
         }
     }
     
-    Eigen::VectorX<T> process() {
-        Eigen::VectorX<T> result(m_lerps.size());
+    bool process(Eigen::VectorX<T>& result) {
+        if (!m_initialized) {
+            return false;
+        }
         for (int i = 0; i < m_lerps.size(); i++) {
             result[i] = m_lerps[i].process();
         }
-        return result;
+        return true;
     }
     
     bool isFinished() const {
@@ -143,5 +152,92 @@ public:
     }
     
 private:
+    bool m_initialized;
     std::vector<LinearInterpolator<T>> m_lerps;
+};
+
+template <typename T>
+class MatrixInterpolator {
+public:
+    MatrixInterpolator() : m_initialized(false) {}
+
+    void resize(int rows, int cols, unsigned int delta) {
+        m_lerps.resize(rows);
+        for (auto& row : m_lerps) {
+            row.resize(cols);
+            for (auto& lerp : row) {
+                lerp.setup(delta);
+            }
+        }
+        m_initialized = true;
+    }
+
+    void setTarget(const Eigen::MatrixX<T>& target) {
+        if (!m_initialized) {
+            return;
+        }
+        // if (m_lerps.size() != target.rows() || m_lerps[0].size() != target.cols()) {
+            // return;  // Ignore if dimensions don't match
+        // }
+        for (int i = 0; i < target.rows(); ++i) {
+            for (int j = 0; j < target.cols(); ++j) {
+                m_lerps[i][j].setTarget(target(i, j));
+            }
+        }
+    }
+
+    void setValue(const Eigen::MatrixX<T>& value) {
+        if (!m_initialized) {
+            return;
+        }
+        // if (m_lerps.size() != value.rows() || m_lerps[0].size() != value.cols()) {
+            // return;  // Ignore if dimensions don't match
+        // }
+        for (int i = 0; i < value.rows(); ++i) {
+            for (int j = 0; j < value.cols(); ++j) {
+                m_lerps[i][j].setValue(value(i, j));
+            }
+        }
+    }
+
+    void setDelta(unsigned int delta) {
+        for (auto& row : m_lerps) {
+            for (auto& lerp : row) {
+                lerp.setDelta(delta);
+            }
+        }
+    }
+
+    bool process(Eigen::MatrixX<T>& result) {
+        int rows = m_lerps.size();
+        int cols = m_lerps[0].size();
+
+        // check the result matrix has the correct dimensions
+        if (result.rows() != rows || result.cols() != cols) {
+            return false;
+        }
+
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                result(i, j) = m_lerps[i][j].process();
+            }
+        }
+        return true;
+    }
+
+    bool isFinished() const {
+        for (const auto& row : m_lerps) {
+            for (const auto& lerp : row) {
+                if (!lerp.isFinished()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+
+private:
+    bool m_initialized;
+    std::vector<std::vector<LinearInterpolator<T>>> m_lerps;
 };

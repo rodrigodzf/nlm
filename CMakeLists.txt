@@ -160,6 +160,7 @@ endif()
 # Add subdirectories for your Max objects
 add_subdirectory(src/maxmsp/plate_tilde)
 add_subdirectory(src/maxmsp/string_tilde)
+add_subdirectory(src/maxmsp/mcs.plate_tilde)
 add_subdirectory(src/common/vk_utils)
 add_subdirectory(src/common/test_libs)
 # add_subdirectory(src/common/magpie)
