@@ -18,40 +18,33 @@ using namespace c74::min;
 using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 using Matrix = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 
-class string_tilde : public object<string_tilde>, public sample_operator<1, 1> {
+long simplemc_multichanneloutputs(c74::max::t_object* x, long index, long count);
+
+class mcs_string_tilde : public object<mcs_string_tilde>, public vector_operator<> {
 public:
     MIN_DESCRIPTION	{ "A modal string." };
     MIN_TAGS		{ "audio" };
     MIN_AUTHOR		{ "Rodrigo Diaz" };
     MIN_RELATED		{ "biquad~" };
 
-    string_tilde(const atoms& args = {}) {}
+    mcs_string_tilde(const atoms& args = {}) {
+        if (args.size() > 1) {
+            m_num_inputs = static_cast<int>(args[0]);
+            m_num_outputs = static_cast<int>(args[1]);
+        }
 
-    inlet<>  input    { this, "(signal) Input to the modal resonator", "signal" };
-    outlet<> output   { this, "(signal) Output from the modal resonator", "signal" };
+        m_force_positions = Vector::Constant(m_num_inputs, 0.5);
+        m_readout_positions = Vector::Constant(m_num_outputs, 0.5);
+    }
 
+    inlet<>  input    { this, "(multichannelsignal) Input to the modal resonator" };
+    outlet<> output   { this, "(multichannelsignal) Output from the modal resonator", "multichannelsignal" };
+
+    // Single update queue for all parameter changes
     queue<> update_queue {this, MIN_FUNCTION {
         update_all_parameters();
         return {};
     }};
-
-    attribute<number, threadsafe::no, limit::clamp> force_position { this, "force_position", 0.5,
-        description {"Force position (0-1)"},
-        range { 0.0, 1.0 },
-        setter { MIN_FUNCTION {
-            update_queue.set();
-            return { args };
-        }}
-    };
-
-    attribute<number, threadsafe::no, limit::clamp> readout_position { this, "readout_position", 0.5,
-        description {"Readout position (0-1)"},
-        range { 0.0, 1.0 },
-        setter { MIN_FUNCTION {
-            update_queue.set();
-            return { args };
-        }}
-    };
 
     attribute<number> n_modes { this, "n_modes", 32,
         description {"Number of modes"},
@@ -126,52 +119,92 @@ public:
     
     message<> maxclass_setup { this, "maxclass_setup",
         [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
-            cout << "string~ - " << VERSION << " - 2025 - Rodrigo Diaz" << endl;
+            cout << "mcs.string~ - " << VERSION << " - 2025 - Rodrigo Diaz" << endl;
+            c74::max::t_class* c = args[0];
+            c74::max::class_addmethod(c, (c74::max::method)simplemc_multichanneloutputs, "multichanneloutputs", c74::max::A_CANT, 0);
             return {};
         }
     };
 
-    message<> dspsetup {this, "dspsetup",
+    message<> force_position { this, "force_position",
         MIN_FUNCTION {
-            m_dt = 1.0 / samplerate();
-            m_initialized = false;
-            update_queue.set(); // Force recalculation of all parameters
+            if (args.size() != m_num_inputs) {
+                cerr << "force_position: must provide " << m_num_inputs << " positions" << endl;
+                return {};
+            }
+            
+            for (int i = 0; i < m_num_inputs; ++i) {
+                m_force_positions[i] = args[i];
+            }
+            
+            update_queue.set();
             return {};
         }
     };
-    
-    sample operator()(sample input) {
+
+    message<> readout_position { this, "readout_position",
+        MIN_FUNCTION {
+            if (args.size() != m_num_outputs) {
+                cerr << "readout_position: must provide " << m_num_outputs << " positions" << endl;
+                return {};
+            }
+
+            for (int i = 0; i < m_num_outputs; ++i) {
+                m_readout_positions[i] = args[i];
+            }
+
+            update_queue.set();
+            return {};
+        }
+    };
+
+    void operator()(audio_bundle input, audio_bundle output) {
         if (!m_initialized) {
-            return 0.0;
+            for (int ch = 0; ch < output.channel_count(); ++ch)
+                std::fill(output.samples(ch), output.samples(ch) + output.frame_count(), 0.0);
+            return;
         }
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
 
-        // Calculate force input
-        m_force_input = input * m_force_weights;
+        for (int frame = 0; frame < input.frame_count(); ++frame) {
+            // For each input channel, calculate force input
+            for (int in_ch = 0; in_ch < m_num_inputs; ++in_ch) {
+                m_force_input.col(in_ch) = input.samples(in_ch)[frame] * m_force_weights.col(in_ch);
+            }
 
-        // Update nonlinearity
-        m_parallel_filter.update_nonlinearity(m_lambda_mu, m_string_tau_with_norms);
-        
-        // Process input
-        m_parallel_filter(m_force_input);
+            // Update nonlinearity
+            m_parallel_filter.update_nonlinearity(m_lambda_mu, m_string_tau_with_norms);
+            
+            // Process all inputs
+            m_parallel_filter(m_force_input.rowwise().sum());
 
-        // Get the interpolated readout weights and use them for output
-        m_readout_weights_lerp.process(m_current_readout_weights);
-        sample out = m_current_readout_weights.dot(m_parallel_filter.get_q());
+            // Interpolated readout weights
+            bool success = m_readout_weights_lerp.process(m_current_readout_weights);
+            if (!success) {
+                cout << "Failed to process m_readout_weights_lerp" << endl;
+            }
 
+            // Output for each output channel
+            for (int out_ch = 0; out_ch < m_num_outputs; ++out_ch) {
+                output.samples(out_ch)[frame] = m_current_readout_weights.col(out_ch).dot(m_parallel_filter.get_q());
+            }
+        }
         lock.unlock();
-        return out;
     }
+
+public:
+    int m_num_inputs = 1;
+    int m_num_outputs = 2;
 
 private:
     void update_all_parameters() {
         if (!m_initialized || m_prev_n_modes != n_modes) {
             m_prev_n_modes = n_modes;
-            m_readout_weights_lerp.resize(n_modes, 441);
-            m_current_readout_weights.resize(n_modes);
+            m_readout_weights_lerp.resize(n_modes, m_num_outputs, 441);
+            m_current_readout_weights.resize(n_modes, m_num_outputs);
             m_parallel_filter.resize(n_modes);
-            m_force_input.resize(n_modes);
+            m_force_input.resize(n_modes, m_num_inputs);
         }
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
@@ -202,19 +235,25 @@ private:
         // Set coefficients for parallel filter
         m_parallel_filter.set_coefficients(m_gamma2_mu, m_omega_mu_squared, m_dt);
         
-        // Calculate force weights
-        m_force_weights = ftm::evaluate_string_eigenfunctions(
-            m_selected_indices,
-            force_position * m_string_parameters.length,
-            m_string_parameters.length
-        ) / (string_norm * m_string_parameters.density());
+        // Calculate force weights matrix
+        m_force_weights.resize(n_modes, m_num_inputs);
+        for (int i = 0; i < m_num_inputs; ++i) {
+            m_force_weights.col(i) = ftm::evaluate_string_eigenfunctions(
+                m_selected_indices,
+                m_force_positions[i] * m_string_parameters.length,
+                m_string_parameters.length
+            ) / (string_norm * m_string_parameters.density());
+        }
         
-        // Calculate readout weights
-        Vector new_readout_weights = ftm::evaluate_string_eigenfunctions(
-            m_selected_indices,
-            readout_position * m_string_parameters.length,
-            m_string_parameters.length
-        );
+        // Calculate readout weights matrix
+        Matrix new_readout_weights(static_cast<int>(n_modes), m_num_outputs);
+        for (int i = 0; i < m_num_outputs; ++i) {
+            new_readout_weights.col(i) = ftm::evaluate_string_eigenfunctions(
+                m_selected_indices,
+                m_readout_positions[i] * m_string_parameters.length,
+                m_string_parameters.length
+            );
+        }
         
         if (m_readout_weights_lerp.isFinished()) {
             if (m_readout_weights.size() == 0) {
@@ -241,13 +280,21 @@ private:
     Vector m_gamma2_mu;
     Vector m_omega_mu_squared;
     
-    Vector m_force_weights;
-    Vector m_readout_weights;
-    Vector m_current_readout_weights;
-    Vector m_force_input;
+    Matrix m_force_weights;
+    Matrix m_readout_weights;
+    Matrix m_current_readout_weights;
+    Matrix m_force_input;
     
-    VectorInterpolator<double> m_readout_weights_lerp;
+    Vector m_force_positions;
+    Vector m_readout_positions;
+    
+    MatrixInterpolator<double> m_readout_weights_lerp;
     ParallelFilter<double> m_parallel_filter;
 };
 
-MIN_EXTERNAL(string_tilde);
+long simplemc_multichanneloutputs(c74::max::t_object* x, long index, long count) {
+    minwrap<mcs_string_tilde>* ob = (minwrap<mcs_string_tilde>*)(x);
+    return ob->m_min_object.m_num_outputs;
+}
+
+MIN_EXTERNAL(mcs_string_tilde);

@@ -270,7 +270,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "int", "int" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 349.0, 270.0, 100.0, 100.0 ]
+					"patching_rect" : [ 353.0, 270.0, 100.0, 100.0 ]
 				}
 
 			}
@@ -283,7 +283,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 349.0, 518.0, 115.0, 76.0 ],
-					"text" : "readout_position 0.535433 0.472441 0.96063 0.314961 0.527559 0.582677 0.488189 0.228346"
+					"text" : "readout_position 0.606299 0.566929 0.669291 0.023622 0.440945 0.826772 0. 0."
 				}
 
 			}
@@ -732,8 +732,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "multichannelsignal" ],
-					"patching_rect" : [ 52.333344000000011, 276.0, 125.0, 22.0 ],
-					"text" : "mcs.plate~ berger 1 4"
+					"patching_rect" : [ 52.333344000000011, 276.0, 102.0, 22.0 ],
+					"text" : "mcs.plate~ vk 1 4"
 				}
 
 			}
