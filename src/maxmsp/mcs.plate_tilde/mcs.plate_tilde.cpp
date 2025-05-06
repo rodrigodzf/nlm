@@ -187,8 +187,26 @@ public:
     };
     message<> set_couplings_and_eigenvalues { this, "set_couplings_and_eigenvalues",
         [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
+            if (args.size() < 1) {
+                cout << "set_couplings_and_eigenvalues: no filename provided" << endl;
+                return {};
+            }
+
             std::string filename = args[0];
+            
+            // Check if file exists
+            std::ifstream file_check(filename);
+            if (!file_check.good()) {
+                cout << "set_couplings_and_eigenvalues: file '" << filename << "' does not exist or is not accessible" << endl;
+                return {};
+            }
+            file_check.close();
+
             matioCpp::File file(filename);
+            if (!file.isOpen()) {
+                cout << "set_couplings_and_eigenvalues: could not open file '" << filename << "'" << endl;
+                return {};
+            }
 
             cout << "Loading data from " << filename << endl;
             
