@@ -14,6 +14,9 @@ add_library(
 	${SOURCE_FILES}
 )
 
+# Comment this out as it will be automatically set by the directory name
+# set(${PROJECT_NAME}_EXTERN_OUTPUT_NAME "modal.plate~")
+
 message(STATUS "Version in CMakeLists.txt: ${PACKAGE_VERSION}")
 
 # Generate version header file
@@ -86,6 +89,8 @@ if(TARGET ${PROJECT_NAME}_test)
     )
 endif()
 
+
+
 # Copy libmatio from homebrew to the plate~ external's MacOS directory
 if(APPLE)
     # Set the external bundle path
@@ -97,7 +102,7 @@ if(APPLE)
         TARGET ${PROJECT_NAME}
         POST_BUILD
         COMMAND "${INSTALL_NAME_SCRIPT}" "$<TARGET_FILE:${PROJECT_NAME}>" "${PLATE_EXTERNAL_PATH}"
-        COMMENT "Setting up libmatio in plate~ external bundle"
+        COMMENT "Setting up libmatio in modal.plate~ external bundle"
     )
 
     if (CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")

@@ -21,23 +21,14 @@ using namespace c74::min;
 using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 using Matrix = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 
-long simplemc_multichanneloutputs(c74::max::t_object* x, long index, long count);
-
-class mcs_plate_tilde : public object<mcs_plate_tilde>, public vector_operator<> {
+class plate_tilde : public object<plate_tilde>, public sample_operator<1, 1> {
 public:
     MIN_DESCRIPTION	{ "A modal plate." };
     MIN_TAGS		{ "audio" };
     MIN_AUTHOR		{ "Rodrigo Diaz" };
     MIN_RELATED		{ "biquad~" };
 
-    mcs_plate_tilde(const atoms& args = {}) {
-
-        
-        if (args.size() > 2) {
-            m_num_inputs = static_cast<int>(args[1]);
-            m_num_outputs = static_cast<int>(args[2]);
-        }
-
+    plate_tilde(const atoms& args = {}) {
 
         // Initialize model type
         if (args.size() > 0) {
@@ -54,20 +45,13 @@ public:
         model_type = m_model_type;
 
         cout << "Model type: " << m_model_type << endl;
-        cout << "Number of inputs: " << m_num_inputs << endl;
-        cout << "Number of outputs: " << m_num_outputs << endl;
 
         m_lambda_mu = Vector::Zero(m_n_phi);
         m_gamma2_mu = Vector::Zero(m_n_phi);
-
-        m_force_positions_x = Vector::Constant(m_num_inputs, 0.5);
-        m_force_positions_y = Vector::Constant(m_num_inputs, 0.5);
-        m_readout_positions_x = Vector::Constant(m_num_outputs, 0.5);
-        m_readout_positions_y = Vector::Constant(m_num_outputs, 0.5);
     }
 
-    inlet<>  input    { this, "(multichannelsignal) Input to the modal resonator" };
-    outlet<> output   { this, "(multichannelsignal) Output from the modal resonator", "multichannelsignal" };
+    inlet<>  input    { this, "(signal) Input to the modal resonator", "signal" };
+    outlet<> output   { this, "(signal) Output from the modal resonator", "signal" };
 
     attribute<symbol> model_type { this, "model_type", 
         title {"Model Type"},
@@ -81,6 +65,24 @@ public:
         update_all_parameters();
         return {};
     }};
+
+    attribute<numbers> force_position { this, "force_position", {{0.5, 0.5}},
+        description {"Force position (0-1)"},
+        range { 0.0, 1.0 },
+        setter { MIN_FUNCTION {
+            update_queue.set();
+            return { args };
+        }}
+    };
+
+    attribute<numbers> readout_position { this, "readout_position", {{0.5, 0.5}},
+        description {"Readout position (0-1)"},
+        range { 0.0, 1.0 },
+        setter { MIN_FUNCTION {
+            update_queue.set();
+            return { args };
+        }}
+    };
 
     attribute<number, threadsafe::no, limit::clamp> poisson_ratio { this, "poisson_ratio", 0.3,
         description {"Poisson's ratio"},
@@ -165,11 +167,7 @@ public:
     
     message<> maxclass_setup { this, "maxclass_setup",
         [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
-            cout << "plate~ - " << VERSION << " - 2025 - Rodrigo Diaz" << endl;
-
-            c74::max::t_class* c = args[0];
-            c74::max::class_addmethod(c, (c74::max::method)simplemc_multichanneloutputs, "multichanneloutputs", c74::max::A_CANT, 0);
-            // c74::max::class_addmethod(c, (c74::max::method)simplemc_inputchanged, "inputchanged", c74::max::A_CANT, 0);
+            cout << "modal.plate~ - " << VERSION << " - 2025 - Rodrigo Diaz" << endl;
             return {};
         }
     };
@@ -179,8 +177,7 @@ public:
             m_dt = 1.0 / samplerate();
             // Don't reset initialized flag if data is loaded from file
             if (m_initialized) {
-                // allocate_temp_vectors(); // Ensure temp vectors are allocated with correct size
-                update_queue.set();       // Update parameters but preserve loaded data
+                update_queue.set();
             }
             return {};
         }
@@ -229,10 +226,10 @@ public:
             m_selected_indices_y = matioCpp::to_eigen(selected_indices_y);
 
             m_data_loaded = true;
-            m_readout_weights_lerp.resize(m_n_phi, m_num_outputs, 441);
-            m_current_readout_weights.resize(m_n_phi, m_num_outputs);
+            m_readout_weights_lerp.resize(m_n_phi, 441);
+            m_current_readout_weights.resize(m_n_phi);
             m_parallel_filter.resize(m_n_phi);
-            m_force_input.resize(m_n_phi, m_num_inputs);
+            m_force_input.resize(m_n_phi);
             update_queue.set(); // Trigger parameter update after data loading
             return {};
         }
@@ -241,7 +238,7 @@ public:
     message<> info { this, "info",
         MIN_FUNCTION {
             std::stringstream ss;
-            ss << "plate~ parameters:" << '\n'
+            ss << "modal.plate~ parameters:" << '\n'
                << "Model type: " << m_model_type << '\n'
                << "Thickness: " << thickness << " m" << '\n'
                << "Dimensions: " << lx << " x " << ly << " m" << '\n'
@@ -253,106 +250,46 @@ public:
                  << frequency_dependent_loss << " (freq. dep.)" << '\n'
                << "Sampling rate: " << samplerate() << " Hz" << '\n'
                << "Modes: " << m_n_phi << '\n'
-               << "Force positions: ";
-            for (int i = 0; i < m_force_positions_x.size(); ++i) {
-                ss << "(" << m_force_positions_x[i] << ", " << m_force_positions_y[i] << ") ";
-            }
-            ss << '\n'
-               << "Readout positions: ";
-            for (int i = 0; i < m_readout_positions_x.size(); ++i) {
-                ss << "(" << m_readout_positions_x[i] << ", " << m_readout_positions_y[i] << ") ";
-            }
+               << "Force position: " << force_position[0] << " " << force_position[1] << '\n'
+               << "Readout position: " << readout_position[0] << " " << readout_position[1] << '\n';
             ss << '\n';
             cout << ss.str() << endl;
             return {};
         }
     };
     
-    message<> force_position { this, "force_position",
-        MIN_FUNCTION {
-            if (args.size() % 2 != 0) {
-                cerr << "force_position: must provide pairs of x,y coordinates" << endl;
-                return {};
-            }
-            // check if args.size() / 2 is equal to m_num_inputs
-            if (args.size() / 2 != m_num_inputs) {
-                cerr << "force_position: must provide " << m_num_inputs << " pairs of x,y coordinates" << endl;
-                return {};
-            }
-            
-            for (int i = 0; i < args.size() / 2; ++i) {
-                m_force_positions_x[i] = args[i * 2];
-                m_force_positions_y[i] = args[i * 2 + 1];
-            }
-            
-            update_queue.set();
-            return {};
-        }
-    };
-
-    message<> readout_position { this, "readout_position",
-        MIN_FUNCTION {
-            if (args.size() % 2 != 0) {
-                cerr << "readout_position: must provide pairs of x,y coordinates" << endl;
-                return {};
-            }
-            // check if args.size() / 2 is equal to m_num_outputs
-            if (args.size() / 2 != m_num_outputs) {
-                cerr << "readout_position: must provide " << m_num_outputs << " pairs of x,y coordinates" << endl;
-                return {};
-            }
-
-            for (int i = 0; i < args.size() / 2; ++i) {
-                m_readout_positions_x[i] = args[i * 2];
-                m_readout_positions_y[i] = args[i * 2 + 1];
-            }
-
-            update_queue.set();
-            return {};
-        }
-    };
-
-    void operator()(audio_bundle input, audio_bundle output) {
+    sample operator()(sample input) {
         if (!m_initialized) {
-            for (int ch = 0; ch < output.channel_count(); ++ch)
-                std::fill(output.samples(ch), output.samples(ch) + output.frame_count(), 0.0);
-            return;
+            return 0.0;
         }
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
 
-        for (int frame = 0; frame < input.frame_count(); ++frame) {
-            // For each input channel, calculate force input
-            for (int in_ch = 0; in_ch < m_num_inputs; ++in_ch) {
-                m_force_input.col(in_ch) = input.samples(in_ch)[frame] * m_force_weights.col(in_ch);
-            }
+        // Use pre-allocated vector for input force calculation
+        m_force_input = input * m_force_weights;
 
-            // Nonlinear update
-            if (m_model_type == "vk") {
-                m_parallel_filter.update_nonlinearity(m_H_scaled, m_n_psi, m_n_phi);
-            } else if (m_model_type == "berger") {
-                m_parallel_filter.update_nonlinearity(m_lambda_mu, m_plate_tau_with_norms);
-            }
-            // add the contribution for each input channel
-            m_parallel_filter(m_force_input.rowwise().sum());
-
-            // Interpolated readout weights
-            bool success = m_readout_weights_lerp.process(m_current_readout_weights);
-            if (!success) {
-                cout << "Failed to process m_readout_weights_lerp" << endl;
-            }
-
-            // Output for each output channel
-            for (int out_ch = 0; out_ch < m_num_outputs; ++out_ch) {
-                output.samples(out_ch)[frame] = m_current_readout_weights.col(out_ch).dot(m_parallel_filter.get_q());
-            }
+        // Nonlinear update
+        if (m_model_type == "vk") {
+            m_parallel_filter.update_nonlinearity(m_H_scaled, m_n_psi, m_n_phi);
+        } else if (m_model_type == "berger") {
+            m_parallel_filter.update_nonlinearity(m_lambda_mu, m_plate_tau_with_norms);
         }
+        // add the contribution for each input channel
+        m_parallel_filter(m_force_input.rowwise().sum());
+
+        // Interpolated readout weights
+        bool success = m_readout_weights_lerp.process(m_current_readout_weights);
+        if (!success) {
+            cout << "Failed to process m_readout_weights_lerp" << endl;
+        }
+
+        // Get the interpolated readout weights and use them for output
+        sample out = m_current_readout_weights.dot(m_parallel_filter.get_q());
+
         lock.unlock();
+        return out;
     }
 
-public:
-    int m_num_inputs = 1;
-    int m_num_outputs = 2;
 private:
     
     // Unified function to update all parameters
@@ -394,22 +331,16 @@ private:
      
         m_parallel_filter.set_coefficients(m_gamma2_mu, m_omega_mu_squared, m_dt);
         
-        // print the readout positions
-        // cout << "Readout positions: " << m_readout_positions_x << " " << m_readout_positions_y << endl;
-        
-        // Calculate force weights
         m_force_weights = ftm::evaluate_rectangular_eigenfunctions(
-            m_selected_indices_x, m_selected_indices_y,
-            (m_force_positions_x * m_plate_parameters.l1).eval(),
-            (m_force_positions_y * m_plate_parameters.l2).eval(),
+            m_selected_indices_x, m_selected_indices_y, 
+            force_position[0] * m_plate_parameters.l1, force_position[1] * m_plate_parameters.l2, 
             m_plate_parameters.l1, m_plate_parameters.l2
         ) / (plate_norm * m_plate_parameters.density());
 
-        // Step 6: Calculate readout weights
-        Eigen::MatrixXd new_readout_weights = ftm::evaluate_rectangular_eigenfunctions(
-            m_selected_indices_x, m_selected_indices_y,
-            (m_readout_positions_x * m_plate_parameters.l1).eval(),
-            (m_readout_positions_y * m_plate_parameters.l2).eval(),
+        Vector new_readout_weights = ftm::evaluate_rectangular_eigenfunctions(
+            m_selected_indices_x, m_selected_indices_y, 
+            readout_position[0] * m_plate_parameters.l1,
+            readout_position[1] * m_plate_parameters.l2,
             m_plate_parameters.l1, m_plate_parameters.l2
         );
         
@@ -435,20 +366,6 @@ private:
             cout << "Failed to process m_readout_weights_lerp" << endl;
         }
 
-
-        // get the shape of m_current_readout_weights
-        cout << "m_current_readout_weights: " << m_current_readout_weights.rows() << " x " << m_current_readout_weights.cols() << endl;
-        // print the first 5 rows of m_current_readout_weights for each column
-        cout << "First 5 rows of m_current_readout_weights:" << endl;
-        for (int col = 0; col < m_current_readout_weights.cols(); ++col) {
-            cout << "Column " << col << ": ";
-            for (int row = 0; row < 5 && row < m_current_readout_weights.rows(); ++row) {
-                cout << m_current_readout_weights(row, col) << " ";
-            }
-            cout << endl;
-        }
-
-        // Step 7: Mark as initialized
         m_initialized = true;
         
         lock.unlock();
@@ -474,39 +391,18 @@ private:
     Vector m_gamma2_mu;
     Vector m_omega_mu_squared;
     
-    Eigen::MatrixXd m_force_weights; // (modes, inputs)
-    Eigen::MatrixXd m_readout_weights; // (modes, outputs)
-    Eigen::MatrixXd m_current_readout_weights; // (modes, outputs)
-    Eigen::MatrixXd m_force_input; // (modes, inputs)
-    MatrixInterpolator<double> m_readout_weights_lerp;
+    Vector m_force_weights;
+    Vector m_readout_weights;
+    Vector m_current_readout_weights;
+    Vector m_force_input;
+    VectorInterpolator<double> m_readout_weights_lerp;
 
     std::string m_model_type = "berger";  // Default model type
 
     // Track if data is loaded from file
     bool m_data_loaded = false;
 
-    Vector m_force_positions_x;
-    Vector m_force_positions_y;
-    Vector m_readout_positions_x;
-    Vector m_readout_positions_y;
-
     ParallelFilter<double> m_parallel_filter;
 };
 
-long simplemc_multichanneloutputs(c74::max::t_object* x, long index, long count) {
-    minwrap<mcs_plate_tilde>* ob = (minwrap<mcs_plate_tilde>*)(x);
-    return ob->m_min_object.m_num_outputs;
-}
-
-// long simplemc_inputchanged(c74::max::t_object* x, long index, long count) {
-//     minwrap<mcs_plate_tilde>* ob = (minwrap<mcs_plate_tilde>*)(x);
-//     auto chan_number = ob->m_min_object.m_num_inputs;
-//     ob->m_min_object.input_chans[index] = count;
-//     if (chan_number != count) {
-//       c74::max::object_error(x, (std::string("invalid channel number for input ") + std::to_string(index)
-//                                           + std::string("; should be ") + std::to_string(chan_number)).c_str());
-//     } 
-//     return false;
-// }
-
-MIN_EXTERNAL(mcs_plate_tilde);
+MIN_EXTERNAL(plate_tilde);

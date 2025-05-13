@@ -1,8 +1,8 @@
-#include "c74_min_unittest.h"   // Unit test framework
+#include "c74_min_unittest.h"    // required unit test header
+#include "version.h"
 
 // Include the header file, not the cpp file
-#include "plate_tilde.cpp"
-#include "version.h"
+#include "modal.plate_tilde.cpp"
 
 using namespace c74::min;
 using namespace c74::max;

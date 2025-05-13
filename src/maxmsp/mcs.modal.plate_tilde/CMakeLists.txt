@@ -14,6 +14,9 @@ add_library(
 	${SOURCE_FILES}
 )
 
+# Comment this out as it will be automatically set by the directory name
+# set(${PROJECT_NAME}_EXTERN_OUTPUT_NAME "mcs.modal.plate~")
+
 message(STATUS "Version in CMakeLists.txt: ${PACKAGE_VERSION}")
 
 # Generate version header file
@@ -68,27 +71,25 @@ include(${C74_MIN_API_DIR}/script/min-posttarget.cmake)
 # UNIT TEST
 #############################################################
 
-include(${C74_MIN_API_DIR}/test/min-object-unittest.cmake)
+# include(${C74_MIN_API_DIR}/test/min-object-unittest.cmake)
 
-if(TARGET ${PROJECT_NAME}_test)
+# if(TARGET ${PROJECT_NAME}_test)
 
-    target_include_directories(
-        ${PROJECT_NAME}_test
-        PUBLIC
-        ${CMAKE_CURRENT_BINARY_DIR}
-    )
+#     target_include_directories(
+#         ${PROJECT_NAME}_test
+#         PUBLIC
+#         ${CMAKE_CURRENT_BINARY_DIR}
+#     )
 
-    target_link_libraries(${PROJECT_NAME}_test
-        PRIVATE
-        Eigen3::Eigen
-        matioCpp::matioCpp
-        vk_utils
-    )
-endif()
+#     target_link_libraries(${PROJECT_NAME}_test
+#         PRIVATE
+#         Eigen3::Eigen
+#         matioCpp::matioCpp
+#         vk_utils
+#     )
+# endif()
 
-
-
-# Copy libmatio from homebrew to the plate~ external's MacOS directory
+# Copy libmatio from homebrew to the external's MacOS directory
 if(APPLE)
     # Set the external bundle path
     set(PLATE_EXTERNAL_PATH "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo")
@@ -99,7 +100,7 @@ if(APPLE)
         TARGET ${PROJECT_NAME}
         POST_BUILD
         COMMAND "${INSTALL_NAME_SCRIPT}" "$<TARGET_FILE:${PROJECT_NAME}>" "${PLATE_EXTERNAL_PATH}"
-        COMMENT "Setting up libmatio in plate~ external bundle"
+        COMMENT "Setting up libmatio in mcs.modal.plate~ external bundle"
     )
 
     if (CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
