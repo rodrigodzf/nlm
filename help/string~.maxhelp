@@ -100,7 +100,7 @@
 			}
 , 			{
 				"box" : 				{
-					"attr" : "frequency_dependent_loss",
+					"attr" : "n_modes",
 					"id" : "obj-9",
 					"maxclass" : "attrui",
 					"numinlets" : 1,

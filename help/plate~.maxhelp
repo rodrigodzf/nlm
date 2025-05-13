@@ -2,17 +2,67 @@
 	"patcher" : 	{
 		"fileversion" : 1,
 		"appversion" : 		{
-			"major" : 9,
-			"minor" : 0,
-			"revision" : 6,
+			"major" : 8,
+			"minor" : 6,
+			"revision" : 5,
 			"architecture" : "x64",
 			"modernui" : 1
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 432.0, 211.0, 2438.0, 1034.0 ],
+		"rect" : [ 34.0, 100.0, 1444.0, 848.0 ],
+		"bglocked" : 0,
+		"openinpresentation" : 0,
+		"default_fontsize" : 12.0,
+		"default_fontface" : 0,
+		"default_fontname" : "Arial",
+		"gridonopen" : 1,
 		"gridsize" : [ 15.0, 15.0 ],
+		"gridsnaponopen" : 1,
+		"objectsnaponopen" : 1,
+		"statusbarvisible" : 2,
+		"toolbarvisible" : 1,
+		"lefttoolbarpinned" : 0,
+		"toptoolbarpinned" : 0,
+		"righttoolbarpinned" : 0,
+		"bottomtoolbarpinned" : 0,
+		"toolbars_unpinned_last_save" : 0,
+		"tallnewobj" : 0,
+		"boxanimatetime" : 200,
+		"enablehscroll" : 1,
+		"enablevscroll" : 1,
+		"devicewidth" : 0.0,
+		"description" : "",
+		"digest" : "",
+		"tags" : "",
+		"style" : "",
+		"subpatcher_template" : "",
+		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
+				"box" : 				{
+					"id" : "obj-69",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 5,
+					"outlettype" : [ "signal", "signal", "signal", "signal", "signal" ],
+					"patching_rect" : [ 123.0, 457.0, 84.0, 22.0 ],
+					"text" : "mc.unpack~ 5"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-68",
+					"maxclass" : "message",
+					"numinlets" : 2,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 542.0, 400.0, 177.0, 22.0 ],
+					"text" : "readout_position 0.1 0.2 0.3 0.4"
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"id" : "obj-88",
 					"maxclass" : "newobj",
@@ -605,9 +655,9 @@
 						"decay" : [ 54.000000000000007 ],
 						"impulse" : [ 100.0 ],
 						"input" : [ 50.0 ],
-						"live.gain~" : [ 6.0 ],
-						"pictslider" : [ 193, 170 ],
-						"pictslider[1]" : [ 100, 150 ],
+						"live.gain~" : [ -0.299733194507724 ],
+						"pictslider" : [ 163, 290 ],
+						"pictslider[1]" : [ 155, 165 ],
 						"position" : [ 4.000000000000001 ],
 						"resonance" : [ 9.0 ],
 						"sharpness" : [ 3.000000000000001 ]
@@ -717,7 +767,7 @@
 					"orientation" : 1,
 					"outlettype" : [ "signal", "signal", "", "float", "list" ],
 					"parameter_enable" : 1,
-					"patching_rect" : [ 219.0, 520.0, 136.0, 47.0 ],
+					"patching_rect" : [ 219.0, 653.0, 136.0, 47.0 ],
 					"saved_attribute_attributes" : 					{
 						"valueof" : 						{
 							"parameter_longname" : "live.gain~",
@@ -907,16 +957,42 @@
 					"patcher" : 					{
 						"fileversion" : 1,
 						"appversion" : 						{
-							"major" : 9,
-							"minor" : 0,
-							"revision" : 6,
+							"major" : 8,
+							"minor" : 6,
+							"revision" : 5,
 							"architecture" : "x64",
 							"modernui" : 1
 						}
 ,
 						"classnamespace" : "box",
 						"rect" : [ 0.0, 0.0, 640.0, 480.0 ],
+						"bglocked" : 0,
+						"openinpresentation" : 0,
+						"default_fontsize" : 12.0,
+						"default_fontface" : 0,
+						"default_fontname" : "Arial",
+						"gridonopen" : 1,
 						"gridsize" : [ 15.0, 15.0 ],
+						"gridsnaponopen" : 1,
+						"objectsnaponopen" : 1,
+						"statusbarvisible" : 2,
+						"toolbarvisible" : 1,
+						"lefttoolbarpinned" : 0,
+						"toptoolbarpinned" : 0,
+						"righttoolbarpinned" : 0,
+						"bottomtoolbarpinned" : 0,
+						"toolbars_unpinned_last_save" : 0,
+						"tallnewobj" : 0,
+						"boxanimatetime" : 200,
+						"enablehscroll" : 1,
+						"enablevscroll" : 1,
+						"devicewidth" : 0.0,
+						"description" : "",
+						"digest" : "",
+						"tags" : "",
+						"style" : "",
+						"subpatcher_template" : "",
+						"assistshowspatchername" : 0,
 						"boxes" : [ 							{
 								"box" : 								{
 									"id" : "obj-25",
@@ -1140,6 +1216,13 @@
 					}
 ,
 					"patching_rect" : [ 467.0, 457.0, 72.0, 22.0 ],
+					"saved_object_attributes" : 					{
+						"description" : "",
+						"digest" : "",
+						"globalpatchername" : "",
+						"tags" : ""
+					}
+,
 					"text" : "p ui_scaling"
 				}
 
@@ -1173,7 +1256,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 103.0, 431.0, 107.0, 47.0 ],
+					"patching_rect" : [ 103.0, 564.0, 107.0, 47.0 ],
 					"text" : "Velocity on the surface of the plate"
 				}
 
@@ -1185,7 +1268,7 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "signal" ],
-					"patching_rect" : [ 219.0, 446.0, 57.0, 22.0 ],
+					"patching_rect" : [ 219.0, 579.0, 57.0, 22.0 ],
 					"text" : "*~ 10000"
 				}
 
@@ -1197,7 +1280,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "signal" ],
-					"patching_rect" : [ 219.0, 411.0, 42.0, 22.0 ],
+					"patching_rect" : [ 219.0, 544.0, 42.0, 22.0 ],
 					"text" : "delta~"
 				}
 
@@ -1210,7 +1293,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "int", "int" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 1078.0, 770.0, 111.440000000000012, 200.0 ],
+					"patching_rect" : [ 1078.0, 770.0, 104.0, 116.0 ],
 					"rightvalue" : 200,
 					"topvalue" : 300,
 					"varname" : "pictslider[1]"
@@ -1225,7 +1308,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "int", "int" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 839.0, 770.0, 111.440000000000012, 200.0 ],
+					"patching_rect" : [ 839.0, 770.0, 104.0, 116.0 ],
 					"rightvalue" : 200,
 					"topvalue" : 300,
 					"varname" : "pictslider"
@@ -1330,7 +1413,7 @@
 					"maxclass" : "ezdac~",
 					"numinlets" : 2,
 					"numoutlets" : 0,
-					"patching_rect" : [ 219.0, 612.0, 45.0, 45.0 ]
+					"patching_rect" : [ 219.0, 745.0, 45.0, 45.0 ]
 				}
 
 			}
@@ -1366,9 +1449,9 @@
 					"maxclass" : "newobj",
 					"numinlets" : 1,
 					"numoutlets" : 1,
-					"outlettype" : [ "signal" ],
-					"patching_rect" : [ 219.0, 357.0, 105.0, 35.0 ],
-					"text" : "plate~ vk"
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 219.0, 357.0, 217.0, 35.0 ],
+					"text" : "modal.plate~ vk 1 2"
 				}
 
 			}
@@ -1388,7 +1471,7 @@
  ],
 		"lines" : [ 			{
 				"patchline" : 				{
-					"destination" : [ "obj-15", 0 ],
+					"destination" : [ "obj-69", 0 ],
 					"source" : [ "obj-1", 0 ]
 				}
 
@@ -1810,29 +1893,6 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-54", 0 ],
-					"source" : [ "obj-58", 1 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-56", 0 ],
-					"order" : 0,
-					"source" : [ "obj-58", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-86", 0 ],
-					"order" : 1,
-					"source" : [ "obj-58", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
 					"destination" : [ "obj-45", 0 ],
 					"source" : [ "obj-59", 0 ]
 				}
@@ -1914,6 +1974,27 @@
 				"patchline" : 				{
 					"destination" : [ "obj-64", 0 ],
 					"source" : [ "obj-66", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-1", 0 ],
+					"source" : [ "obj-68", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-15", 0 ],
+					"source" : [ "obj-69", 1 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-15", 0 ],
+					"source" : [ "obj-69", 0 ]
 				}
 
 			}
@@ -2051,6 +2132,82 @@
 			"inherited_shortname" : 1
 		}
 ,
+		"dependency_cache" : [ 			{
+				"name" : "Constanzo-PreparedSnare.wav",
+				"bootpath" : "~/Documents/Max 8/Packages/DK /media/Musical Examples",
+				"patcherrelativepath" : "../../../Documents/Max 8/Packages/DK /media/Musical Examples",
+				"type" : "WAVE",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "demosound.maxpat",
+				"bootpath" : "C74:/help/msp",
+				"type" : "JSON",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "dk.adstatussr.maxpat",
+				"bootpath" : "~/Documents/Max 8/Packages/DK /misc/Misc",
+				"patcherrelativepath" : "../../../Documents/Max 8/Packages/DK /misc/Misc",
+				"type" : "JSON",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "dk.demosound.maxpat",
+				"bootpath" : "~/Documents/Max 8/Packages/DK /misc/Misc",
+				"patcherrelativepath" : "../../../Documents/Max 8/Packages/DK /misc/Misc",
+				"type" : "JSON",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "dk.impulsegeneratorcomplex~.maxpat",
+				"bootpath" : "~/Documents/Max 8/Packages/DK /misc/Misc",
+				"patcherrelativepath" : "../../../Documents/Max 8/Packages/DK /misc/Misc",
+				"type" : "JSON",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "dk.onset~.maxpat",
+				"bootpath" : "~/Documents/Max 8/Packages/DK /patchers",
+				"patcherrelativepath" : "../../../Documents/Max 8/Packages/DK /patchers",
+				"type" : "JSON",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "fluid.ampfeature~.mxo",
+				"type" : "iLaX"
+			}
+, 			{
+				"name" : "interfacecolor.js",
+				"bootpath" : "C74:/interfaces",
+				"type" : "TEXT",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "random.svg",
+				"bootpath" : "C74:/media/max/picts/m4l-picts",
+				"type" : "svg",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "saw.svg",
+				"bootpath" : "C74:/media/max/picts/m4l-picts",
+				"type" : "svg",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "sine.svg",
+				"bootpath" : "C74:/media/max/picts/m4l-picts",
+				"type" : "svg",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "square.svg",
+				"bootpath" : "C74:/media/max/picts/m4l-picts",
+				"type" : "svg",
+				"implicit" : 1
+			}
+ ],
 		"autosave" : 0,
 		"toolbaradditions" : [ "Data Knot", "data_knot", "dataknot" ]
 	}

@@ -86,60 +86,170 @@ CPMAddPackage(
     "CXXOPTS_BUILD_TESTS Off"
 )
 
-# Find system-installed libmatio
-find_path(MATIO_INCLUDE_DIR matio.h 
-    PATHS /opt/homebrew/include
-    PATH_SUFFIXES matio
-    NO_DEFAULT_PATH
+# Find Eigen3 first, as it's needed by multiple components
+find_package(Eigen3 REQUIRED)
+
+# === zlib (static) ===
+# First, just download zlib without configuring it
+CPMAddPackage(
+  NAME zlib
+  GITHUB_REPOSITORY madler/zlib
+  GIT_TAG v1.3.1
+  DOWNLOAD_ONLY YES
 )
 
-find_library(MATIO_LIBRARY 
-    NAMES matio
-    PATHS /opt/homebrew/opt/libmatio/lib
-    NO_DEFAULT_PATH
+# Create patched zlib CMakeLists.txt template
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch/zlib_CMakeLists.txt.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/zlib_CMakeLists.txt.in"
+  @ONLY
 )
 
-# Create an imported target for matio
-if(MATIO_INCLUDE_DIR AND MATIO_LIBRARY)
-    if(NOT TARGET MATIO::MATIO)
-        add_library(MATIO::MATIO SHARED IMPORTED)
-        set_target_properties(MATIO::MATIO PROPERTIES
-            IMPORTED_LOCATION "${MATIO_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${MATIO_INCLUDE_DIR}"
-        )
-        message(STATUS "Found libmatio: ${MATIO_LIBRARY}")
-        message(STATUS "Found libmatio headers: ${MATIO_INCLUDE_DIR}")
-        set(MatIO_FOUND TRUE)
-    endif()
-else()
-    message(FATAL_ERROR "libmatio not found. Install with: brew install libmatio")
+# Patch the zlib CMakeLists.txt file before building
+if(EXISTS "${zlib_SOURCE_DIR}/CMakeLists.txt")
+  # Find the line where the library definitions start
+  file(READ "${zlib_SOURCE_DIR}/CMakeLists.txt" ZLIB_ORIGINAL_CMAKE)
+  string(FIND "${ZLIB_ORIGINAL_CMAKE}" "#============================================================================\n# zlib" ZLIB_START_POS)
+  if(NOT ZLIB_START_POS EQUAL -1)
+    # Extract the part of the file before the library definitions
+    string(SUBSTRING "${ZLIB_ORIGINAL_CMAKE}" 0 ${ZLIB_START_POS} ZLIB_HEADER)
+    
+    # Configure our custom CMakeLists.txt with only the static library
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch/zlib_CMakeLists.txt.in" 
+                  "${CMAKE_CURRENT_BINARY_DIR}/zlib_CMakeLists.txt.patched" @ONLY)
+    
+    # Read our patched file 
+    file(READ "${CMAKE_CURRENT_BINARY_DIR}/zlib_CMakeLists.txt.patched" ZLIB_PATCHED_CMAKE)
+    
+    # Combine the original header with our patched library section
+    file(WRITE "${zlib_SOURCE_DIR}/CMakeLists.txt" "${ZLIB_HEADER}${ZLIB_PATCHED_CMAKE}")
+    
+    message(STATUS "Successfully patched zlib to build only static libraries")
+  endif()
 endif()
 
-# Get the actual dylib file path to copy later
-get_filename_component(MATIO_DYLIB_PATH "${MATIO_LIBRARY}" REALPATH)
-message(STATUS "Matio dylib to copy: ${MATIO_DYLIB_PATH}")
-
+# Now configure zlib with our patched CMakeLists.txt
 CPMAddPackage(
-    NAME matio-cpp
-    GIT_TAG v0.2.6
-    VERSION 0.2.6
-    GITHUB_REPOSITORY ami-iit/matio-cpp
-    SOURCE_DIR ${LIB_DIR}/matio-cpp
-    OPTIONS
-    "BUILD_TESTING OFF"
-    "MATIOCPP_BUILD_SHARED_LIBRARY OFF" 
+  NAME zlib_configured
+  SOURCE_DIR "${zlib_SOURCE_DIR}"
+  OPTIONS
+    "CMAKE_POSITION_INDEPENDENT_CODE ON"
+    "ZLIB_BUILD_EXAMPLES OFF"
+    "BUILD_SHARED_LIBS OFF"
+    "SKIP_INSTALL_SHARED_LIBRARIES ON"
+    "ZLIB_ENABLE_SHARED OFF"
 )
 
-find_package(Eigen3 REQUIRED)
-find_package(BLAS REQUIRED)
-# find_package(LAPACK REQUIRED)
-# find_package(ARPACK REQUIRED)
-#### External dependencies
+# === matio (static) ===
+set(MATIO_INSTALL_DIR ${CMAKE_BINARY_DIR}/_install/matio)
+list(PREPEND CMAKE_PREFIX_PATH ${MATIO_INSTALL_DIR})
 
+# Define policy to fix include directory issues
+if(POLICY CMP0076)
+  cmake_policy(SET CMP0076 NEW)
+endif()
+
+# Download matio first
+CPMAddPackage(
+  NAME matio
+  GITHUB_REPOSITORY tbeu/matio
+  GIT_TAG v1.5.28
+  DOWNLOAD_ONLY YES
+)
+
+# Patch matio's thirdParties.cmake
+if(EXISTS "${matio_SOURCE_DIR}/cmake/thirdParties.cmake")
+  # Find the MATIO_CREATE_ZLIB macro in thirdParties.cmake
+  file(READ "${matio_SOURCE_DIR}/cmake/thirdParties.cmake" MATIO_THIRDPARTIES_CMAKE)
+  
+  # Find the MATIO_CREATE_ZLIB section
+  string(FIND "${MATIO_THIRDPARTIES_CMAKE}" "macro(MATIO_CREATE_ZLIB" ZLIB_MACRO_POS)
+  
+  if(NOT ZLIB_MACRO_POS EQUAL -1)
+    # Extract the header part before the MATIO_CREATE_ZLIB macro
+    string(SUBSTRING "${MATIO_THIRDPARTIES_CMAKE}" 0 ${ZLIB_MACRO_POS} MATIO_THIRDPARTIES_HEADER)
+    
+    # Read our custom implementation
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch/matio_thirdParties.cmake.in" 
+                 "${CMAKE_CURRENT_BINARY_DIR}/matio_thirdParties.cmake.patched" @ONLY)
+    file(READ "${CMAKE_CURRENT_BINARY_DIR}/matio_thirdParties.cmake.patched" MATIO_THIRDPARTIES_PATCHED)
+    
+    # Get everything after the if(MATIO_WITH_ZLIB) section
+    string(FIND "${MATIO_THIRDPARTIES_CMAKE}" "endif()" MATIO_ZLIB_ENDIF_POS REVERSE)
+    math(EXPR MATIO_FOOTER_POS "${MATIO_ZLIB_ENDIF_POS}+7") # 7 is the length of endif()
+    string(SUBSTRING "${MATIO_THIRDPARTIES_CMAKE}" ${MATIO_FOOTER_POS} -1 MATIO_THIRDPARTIES_FOOTER)
+    
+    # Write the patched thirdParties.cmake
+    file(WRITE "${matio_SOURCE_DIR}/cmake/thirdParties.cmake" 
+         "${MATIO_THIRDPARTIES_HEADER}${MATIO_THIRDPARTIES_PATCHED}${MATIO_THIRDPARTIES_FOOTER}")
+    
+    message(STATUS "Successfully patched matio's thirdParties.cmake to use only static zlib")
+  endif()
+endif()
+
+# Set static libraries in matio's CMakeLists.txt directly
+if(EXISTS "${matio_SOURCE_DIR}/CMakeLists.txt")
+  file(READ "${matio_SOURCE_DIR}/CMakeLists.txt" MATIO_CMAKE)
+  # Add a line to force static libraries at the beginning of the file
+  string(REPLACE "cmake_minimum_required" "set(BUILD_SHARED_LIBS OFF CACHE BOOL \"Build shared libraries\" FORCE)\ncmake_minimum_required" MATIO_CMAKE "${MATIO_CMAKE}")
+  file(WRITE "${matio_SOURCE_DIR}/CMakeLists.txt" "${MATIO_CMAKE}")
+  message(STATUS "Successfully patched matio's CMakeLists.txt to use only static libraries")
+endif()
+
+# Now configure matio with our patches
+CPMAddPackage(
+  NAME matio_configured
+  SOURCE_DIR "${matio_SOURCE_DIR}"
+  OPTIONS
+    "CMAKE_POSITION_INDEPENDENT_CODE ON"
+    "BUILD_SHARED_LIBS OFF"
+    "MATIO_SHARED OFF"
+    "MATIO_MAT73 OFF"
+    "MATIO_WITH_HDF5 OFF"
+    "MATIO_WITH_ZLIB ON"
+    "MATIO_BUILD_TESTING OFF"
+    "HDF5_USE_STATIC_LIBRARIES ON"
+    "SKIP_INSTALL_SHARED_LIBRARIES ON"
+    "ZLIB_INCLUDE_DIR=${zlib_SOURCE_DIR}"
+    "ZLIB_LIBRARY=${CMAKE_BINARY_DIR}/_deps/zlib_configured-build/libz.a"
+)
+
+# Create the MATIO::MATIO alias target that matio-cpp expects
+if (matio_configured_ADDED)
+  if (NOT TARGET MATIO::MATIO)
+    add_library(MATIO::MATIO ALIAS matio)
+  endif()
+  
+  # Fix the include directories to use generator expressions 
+  # This avoids the build directory prefixes that cause errors
+  get_target_property(MATIO_INCLUDES matio INTERFACE_INCLUDE_DIRECTORIES)
+  if(MATIO_INCLUDES)
+    set_target_properties(matio PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
+    target_include_directories(matio
+      PUBLIC
+        "$<BUILD_INTERFACE:${matio_SOURCE_DIR}/src>"
+        "$<BUILD_INTERFACE:${matio_configured_BINARY_DIR}/src>"
+    )
+  endif()
+endif()
+
+# === matio-cpp (static) ===
+# We need a fully custom build of matio-cpp to avoid installation issues
+# First, download the source
+CPMAddPackage(
+  NAME matio-cpp
+  GITHUB_REPOSITORY ami-iit/matio-cpp
+  GIT_TAG v0.2.6
+  VERSION 0.2.6
+  OPTIONS
+  DOWNLOAD_ONLY YES
+)
+
+include(cmake/build_matio_cpp.cmake)
 # Add the cmake module path to find our custom modules
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
-# Find ARPACK using our custom module
+find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
 find_package(ARPACK REQUIRED)
 
