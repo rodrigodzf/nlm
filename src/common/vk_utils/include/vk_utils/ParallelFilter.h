@@ -62,7 +62,7 @@ class ParallelFilter
             // Modal update
             m_q_next.noalias() = m_B.cwiseProduct(m_q) +
                                  m_C.cwiseProduct(m_q_prev) +
-                                 m_A_inv.cwiseProduct(input);
+                                 m_A_inv.cwiseProduct(input - m_nl);
 
             m_q_prev = m_q;
             m_q = m_q_next;
