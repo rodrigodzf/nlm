@@ -3,8 +3,8 @@
 		"fileversion" : 1,
 		"appversion" : 		{
 			"major" : 8,
-			"minor" : 5,
-			"revision" : 2,
+			"minor" : 6,
+			"revision" : 5,
 			"architecture" : "x64",
 			"modernui" : 1
 		}
@@ -283,7 +283,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 349.0, 518.0, 115.0, 76.0 ],
-					"text" : "readout_position 0.606299 0.566929 0.669291 0.023622 0.440945 0.826772 0. 0."
+					"text" : "readout_position 0.338583 0.448819 0.086614 0.472441 0.440945 0.417323 0.787402 0.582677"
 				}
 
 			}
@@ -348,6 +348,7 @@
 							"parameter_longname" : "mc.live.gain~",
 							"parameter_mmax" : 6.0,
 							"parameter_mmin" : -70.0,
+							"parameter_modmode" : 0,
 							"parameter_shortname" : "mc.live.gain~",
 							"parameter_type" : 0,
 							"parameter_unitstyle" : 4
@@ -383,8 +384,8 @@
 						"fileversion" : 1,
 						"appversion" : 						{
 							"major" : 8,
-							"minor" : 5,
-							"revision" : 2,
+							"minor" : 6,
+							"revision" : 5,
 							"architecture" : "x64",
 							"modernui" : 1
 						}
@@ -704,24 +705,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 87.241211000000021, 62.0, 87.0, 22.0 ],
-					"text" : "loadmess 500"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"fontname" : "Arial",
-					"fontsize" : 12.0,
-					"format" : 6,
-					"id" : "obj-26",
-					"maxclass" : "flonum",
-					"numinlets" : 1,
-					"numoutlets" : 2,
-					"outlettype" : [ "", "bang" ],
-					"parameter_enable" : 0,
-					"patching_rect" : [ 86.333344000000011, 90.0, 50.0, 22.0 ],
-					"triscale" : 0.75
+					"patching_rect" : [ 87.241211000000021, 62.0, 90.0, 22.0 ],
+					"text" : "loadmess 2000"
 				}
 
 			}
@@ -732,8 +717,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "multichannelsignal" ],
-					"patching_rect" : [ 52.333344000000011, 276.0, 102.0, 22.0 ],
-					"text" : "mcs.plate~ vk 1 4"
+					"patching_rect" : [ 52.333344000000011, 276.0, 138.0, 22.0 ],
+					"text" : "mcs.modal.plate~ vk 1 4"
 				}
 
 			}
@@ -782,13 +767,6 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-14", 1 ],
-					"source" : [ "obj-26", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
 					"destination" : [ "obj-14", 0 ],
 					"source" : [ "obj-28", 0 ]
 				}
@@ -796,7 +774,7 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-26", 0 ],
+					"destination" : [ "obj-14", 1 ],
 					"source" : [ "obj-32", 0 ]
 				}
 
@@ -959,7 +937,7 @@
 		}
 ,
 		"dependency_cache" : [ 			{
-				"name" : "mcs.plate~.mxo",
+				"name" : "mcs.modal.plate~.mxo",
 				"type" : "iLaX"
 			}
  ],

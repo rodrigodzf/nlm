@@ -62,9 +62,9 @@ T double_trapezoid_flat(const Eigen::Matrix<T, Eigen::Dynamic, 1>& f, T dx, T dy
 
 int main(int argc, char *argv[]) {
     // Parameters for the biharmonic matrix
-    const int Nx = 50;
-    const int Ny = 75;
-    Eigen::Vector2i Nxy(Nx, Ny);
+    const int Nx = 50 + 1;
+    const int Ny = 75 + 1;
+    Eigen::Vector2i Nxy(Nx, Ny); // +1 for the borders
     
     const double h = 0.004;     // Grid spacing
     const double Lz = 5.0e-4; // Plate thickness
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd denseBiharmonic = biharmonicMatrix;
     
     // Number of modes to compute
-    const int n_modes = 10; // Adjust as needed
+    const int n_modes = 64; // Adjust as needed
     
     std::cout << "Computing eigenvalues and eigenvectors..." << std::endl;
     

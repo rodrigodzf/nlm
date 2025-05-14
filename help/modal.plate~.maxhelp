@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 34.0, 100.0, 1153.0, 848.0 ],
+		"rect" : [ 34.0, 100.0, 1136.0, 848.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -1484,8 +1484,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "signal" ],
-					"patching_rect" : [ 71.0, 250.0, 223.0, 35.0 ],
-					"text" : "modal.plate~ berger",
+					"patching_rect" : [ 71.0, 250.0, 147.0, 35.0 ],
+					"text" : "modal.plate~",
 					"varname" : "plate"
 				}
 
