@@ -6,7 +6,7 @@ template <typename T>
 class ParallelFilter
 {
     public:
-        ParallelFilter() : m_initialized(false) {}
+        ParallelFilter() : m_initialized(false), m_n_modes(0) {}
 
         void resize(int n_modes) {
             m_n_modes = n_modes;
@@ -20,6 +20,10 @@ class ParallelFilter
             if (!m_initialized) {
                 m_initialized = true;
             }
+        }
+
+        int get_n_modes() const {
+            return m_n_modes;
         }
 
         void set_coefficients(const Eigen::VectorX<T>& m_gamma2_mu, const Eigen::VectorX<T>& m_omega_mu_squared, double m_dt) {

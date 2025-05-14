@@ -1,7 +1,6 @@
 #include "c74_min.h"
 #include "c74_min_api.h"
 #include "c74_min_attribute.h"
-#include "c74_min_operator_sample.h"
 #include "c74_min_queue.h"
 #include <Eigen/Dense>
 #include <matioCpp/matioCpp.h>
@@ -13,7 +12,6 @@
 #include <vk_utils/FTM.h>
 #include <vk_utils/LinearInterpolator.h>
 #include "version.h"
-#include "vk_utils/vk_utils.h"
 #include <vk_utils/ParallelFilter.h>
 
 using namespace c74::min;

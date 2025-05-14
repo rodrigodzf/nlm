@@ -46,6 +46,11 @@ public:
 
         cout << "Model type: " << m_model_type << endl;
 
+        // Default number of modes for berger model
+        if (m_model_type == "berger") {
+            m_n_phi = 32;
+        }
+
         m_lambda_mu = Vector::Zero(m_n_phi);
         m_gamma2_mu = Vector::Zero(m_n_phi);
     }
@@ -106,6 +111,10 @@ public:
         description {"Length in meters"},
         range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
+            // Reset eigenmode calculation flag when length changes
+            if (m_model_type == "berger" && !m_data_loaded) {
+                m_eigenmode_calculation_complete = false;
+            }
             update_queue.set();
             return { args[0] };
         }}
@@ -115,6 +124,10 @@ public:
         description {"Width in meters"},
         range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
+            // Reset eigenmode calculation flag when width changes
+            if (m_model_type == "berger" && !m_data_loaded) {
+                m_eigenmode_calculation_complete = false;
+            }
             update_queue.set();
             return { args[0] };
         }}
@@ -228,9 +241,44 @@ public:
             m_data_loaded = true;
             m_readout_weights_lerp.resize(m_n_phi, 441);
             m_current_readout_weights.resize(m_n_phi);
-            m_parallel_filter.resize(m_n_phi);
+
+            // Only resize parallel filter if needed
+            if (m_parallel_filter.get_n_modes() != m_n_phi) {
+                m_parallel_filter.resize(m_n_phi);
+            }
+
             m_force_input.resize(m_n_phi);
             update_queue.set(); // Trigger parameter update after data loading
+            return {};
+        }
+    };
+
+    message<> set_num_modes { this, "set_num_modes",
+        [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
+            if (args.size() < 1) {
+                cout << "set_num_modes: no mode count provided" << endl;
+                return {};
+            }
+
+            int num_modes = args[0];
+            if (num_modes < 1) {
+                cout << "set_num_modes: mode count must be positive" << endl;
+                return {};
+            }
+
+            // Reset eigenmode calculation flag when number of modes changes
+            if (m_model_type == "berger" && !m_data_loaded && m_n_phi != num_modes) {
+                m_eigenmode_calculation_complete = false;
+            }
+            
+            m_n_phi = num_modes;
+            cout << "Number of modes set to " << m_n_phi << endl;
+            
+            // If using berger model, recalculate modes
+            if (m_model_type == "berger") {
+                update_queue.set();
+            }
+            
             return {};
         }
     };
@@ -294,8 +342,9 @@ private:
     
     // Unified function to update all parameters
     void update_all_parameters() {
-        if (!m_data_loaded) {
-            return; // Can't update without data loaded from file
+        // Can't update VK model without data loaded from file
+        if (m_model_type == "vk" && !m_data_loaded) {
+            return;
         }
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
@@ -310,6 +359,60 @@ private:
         m_plate_parameters.d1 = frequency_independent_loss;
         m_plate_parameters.d3 = frequency_dependent_loss;
         m_plate_parameters.Ts0 = surface_tension;
+        
+        // For berger model, initialize vectors if needed
+        if (m_model_type == "berger") {
+            // Initialize vectors for all berger model cases
+            if (m_readout_weights.size() != m_n_phi) {
+                m_readout_weights_lerp.resize(m_n_phi, 441);
+            }
+            
+            if (m_current_readout_weights.size() != m_n_phi) {
+                m_current_readout_weights.resize(m_n_phi);
+            }
+            
+            // Only resize parallel filter if needed
+            if (m_parallel_filter.get_n_modes() != m_n_phi) {
+                m_parallel_filter.resize(m_n_phi);
+            }
+            
+            if (m_force_input.size() != m_n_phi) {
+                m_force_input.resize(m_n_phi);
+            }
+            
+            // For berger model, calculate eigenvalues and select modes ONLY if data is not loaded from file
+            // and if eigenmode calculation is not already complete
+            if (!m_data_loaded && !m_eigenmode_calculation_complete) {
+                // Set number of modes to consider in calculation (larger than needed to ensure we have enough)
+                int n_max_modes_x = 20;
+                int n_max_modes_y = 20;
+                
+                // Calculate eigenvalues matrix
+                Matrix lambda_mu_2d = calculate_plate_eigenvalues<double>(
+                    n_max_modes_x, n_max_modes_y, m_plate_parameters.l1, m_plate_parameters.l2);
+                
+                // Allocate vectors for selected modes
+                m_lambda_mu.resize(m_n_phi);
+                Eigen::MatrixX<int> selected_indices(m_n_phi, 2);
+                
+                // Select modes and eigenvalues
+                select_modes_and_eigenvalues<double>(lambda_mu_2d, m_n_phi, m_lambda_mu, selected_indices);
+                
+                // Extract indices into separate x and y vectors
+                m_selected_indices_x.resize(m_n_phi);
+                m_selected_indices_y.resize(m_n_phi);
+                
+                for (int i = 0; i < m_n_phi; ++i) {
+                    m_selected_indices_x(i) = selected_indices(i, 0);
+                    m_selected_indices_y(i) = selected_indices(i, 1);
+                }
+                
+                cout << "Berger model: calculated " << m_n_phi << " modes" << endl;
+                
+                // Mark eigenmode calculation as complete
+                m_eigenmode_calculation_complete = true;
+            }
+        }
         
         // Step 2: Calculate modal coefficients
         m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
@@ -345,14 +448,14 @@ private:
         );
         
         // print the first 5 rows of new_readout_weights
-        cout << "First 5 rows of new_readout_weights:" << endl;
-        for (int col = 0; col < new_readout_weights.cols(); ++col) {
-            cout << "Column " << col << ": ";
-            for (int row = 0; row < 5 && row < new_readout_weights.rows(); ++row) {
-                cout << new_readout_weights(row, col) << " ";
-            }
-            cout << endl;
-        }
+        // cout << "First 5 rows of new_readout_weights:" << endl;
+        // for (int col = 0; col < new_readout_weights.cols(); ++col) {
+            // cout << "Column " << col << ": ";
+            // for (int row = 0; row < 5 && row < new_readout_weights.rows(); ++row) {
+                // cout << new_readout_weights(row, col) << " ";
+            // }
+            // cout << endl;
+        // }
 
         if (m_readout_weights_lerp.isFinished()) {
             if (m_readout_weights.size() == 0) {
@@ -401,6 +504,9 @@ private:
 
     // Track if data is loaded from file
     bool m_data_loaded = false;
+
+    // Track if eigenmode calculation is complete
+    bool m_eigenmode_calculation_complete = false;
 
     ParallelFilter<double> m_parallel_filter;
 };

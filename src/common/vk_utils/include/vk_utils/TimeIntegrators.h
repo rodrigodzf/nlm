@@ -2,7 +2,6 @@
 
 // #include <Eigen/Dense>
 #include <functional>
-#include <vector>
 #include "vk_utils.h"
 
 namespace time_integrators {

@@ -91,18 +91,6 @@ include(${C74_MIN_API_DIR}/script/min-posttarget.cmake)
 
 # Copy libmatio from homebrew to the external's MacOS directory
 if(APPLE)
-    # Set the external bundle path
-    set(PLATE_EXTERNAL_PATH "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo")
-    
-    message(STATUS "PLATE_EXTERNAL_PATH: ${PLATE_EXTERNAL_PATH}")
-    # Execute the fix script after build
-    add_custom_command(
-        TARGET ${PROJECT_NAME}
-        POST_BUILD
-        COMMAND "${INSTALL_NAME_SCRIPT}" "$<TARGET_FILE:${PROJECT_NAME}>" "${PLATE_EXTERNAL_PATH}"
-        COMMENT "Setting up libmatio in mcs.modal.plate~ external bundle"
-    )
-
     if (CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
         add_custom_command( 
             TARGET ${PROJECT_NAME} 

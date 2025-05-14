@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <numeric> // For std::iota
 
 template <typename T>
 void calculate_nonlinear_berger(
@@ -151,4 +152,83 @@ Eigen::VectorX<T> C_vector(
     
     // Add scaled damping term
     return result + damping * (1.0 / (2.0 * h));
+}
+
+template <typename T>
+Eigen::MatrixX<T> calculate_plate_eigenvalues(
+    int n_max_modes_x,
+    int n_max_modes_y,
+    T l1,
+    T l2
+) {
+    // Create a matrix to store the eigenvalues
+    Eigen::MatrixX<T> lambda_mu_2d(n_max_modes_y, n_max_modes_x);
+    
+    // Calculate eigenvalues directly
+    for (int mu_y = 1; mu_y <= n_max_modes_y; ++mu_y) {
+        for (int mu_x = 1; mu_x <= n_max_modes_x; ++mu_x) {
+            // λ_μ,ν = (μπ/L1)^2 + (νπ/L2)^2
+            T kx = mu_x * M_PI / l1;
+            T ky = mu_y * M_PI / l2;
+            lambda_mu_2d(mu_y-1, mu_x-1) = kx * kx + ky * ky;
+        }
+    }
+    
+    return lambda_mu_2d;
+}
+
+template <typename T>
+void select_modes_and_eigenvalues(
+    const Eigen::MatrixX<T>& lambda_mu_2d,
+    int n_modes,
+    Eigen::VectorX<T>& lambda_mu,
+    Eigen::MatrixX<int>& selected_indices
+) {
+    // Get dimensions
+    int n_modes_y = lambda_mu_2d.rows();
+    int n_modes_x = lambda_mu_2d.cols();
+    
+    // Create a vector with all eigenvalues
+    Eigen::VectorX<T> lambda_mu_flat(n_modes_x * n_modes_y);
+    
+    // Fill the flat vector in row-major order
+    for (int i = 0; i < n_modes_y; ++i) {
+        for (int j = 0; j < n_modes_x; ++j) {
+            // Convert 2D coordinates to flat index
+            int flat_idx = i * n_modes_x + j;
+            lambda_mu_flat(flat_idx) = lambda_mu_2d(i, j);
+        }
+    }
+    
+    // Sort indices
+    std::vector<size_t> indices(lambda_mu_flat.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(),
+        [&lambda_mu_flat](size_t i1, size_t i2) {
+            return lambda_mu_flat(i1) < lambda_mu_flat(i2);
+        }
+    );
+    
+    // Take only the first n_modes
+    indices.resize(n_modes);
+    
+    // Create selected_indices matrix and sorted lambda_mu vector
+    lambda_mu.resize(n_modes);
+    selected_indices.resize(n_modes, 2);
+    
+    for (int i = 0; i < n_modes; ++i) {
+        int flat_idx = indices[i];
+        
+        // Convert flat index back to 2D coordinates
+        // Since we used row-major order: flat_idx = row * n_cols + col
+        int ky_idx = flat_idx / n_modes_x;  // row index (y)
+        int kx_idx = flat_idx % n_modes_x;  // column index (x)
+        
+        // Store sorted eigenvalue
+        lambda_mu(i) = lambda_mu_flat(flat_idx);
+        
+        // Store mode indices (1-indexed as in the Python code)
+        selected_indices(i, 0) = kx_idx + 1;  // x index (μ)
+        selected_indices(i, 1) = ky_idx + 1;  // y index (ν)
+    }
 }

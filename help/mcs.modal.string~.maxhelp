@@ -3,14 +3,14 @@
 		"fileversion" : 1,
 		"appversion" : 		{
 			"major" : 8,
-			"minor" : 5,
-			"revision" : 2,
+			"minor" : 6,
+			"revision" : 5,
 			"architecture" : "x64",
 			"modernui" : 1
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 34.0, 87.0, 875.0, 959.0 ],
+		"rect" : [ 715.0, 201.0, 623.0, 848.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -40,6 +40,33 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"format" : 6,
+					"id" : "obj-5",
+					"maxclass" : "flonum",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 99.0, 238.0, 50.0, 22.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"floatoutput" : 1,
+					"id" : "obj-2",
+					"maxclass" : "slider",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 86.333344000000011, 201.0, 160.0, 24.0 ],
+					"size" : 3.0
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"candicane2" : [ 0.145098, 0.203922, 0.356863, 1.0 ],
 					"candicane3" : [ 0.290196, 0.411765, 0.713726, 1.0 ],
 					"candicane4" : [ 0.439216, 0.619608, 0.070588, 1.0 ],
@@ -54,7 +81,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "", "" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 349.0, 309.0, 80.0, 120.0 ],
+					"patching_rect" : [ 279.0, 286.0, 80.0, 120.0 ],
 					"peakcolor" : [ 0.498039, 0.498039, 0.498039, 1.0 ],
 					"setminmax" : [ 0.0, 1.0 ],
 					"size" : 4
@@ -68,7 +95,7 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 349.0, 476.0, 145.0, 22.0 ],
+					"patching_rect" : [ 279.0, 453.0, 145.0, 22.0 ],
 					"text" : "prepend readout_position"
 				}
 
@@ -134,6 +161,7 @@
 							"parameter_longname" : "mc.live.gain~",
 							"parameter_mmax" : 6.0,
 							"parameter_mmin" : -70.0,
+							"parameter_modmode" : 0,
 							"parameter_shortname" : "mc.live.gain~",
 							"parameter_type" : 0,
 							"parameter_unitstyle" : 4
@@ -153,8 +181,8 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "signal" ],
-					"patching_rect" : [ 52.333344000000011, 238.0, 40.0, 22.0 ],
-					"text" : "*~ 30."
+					"patching_rect" : [ 52.333344000000011, 238.0, 34.0, 22.0 ],
+					"text" : "*~ 1."
 				}
 
 			}
@@ -169,8 +197,8 @@
 						"fileversion" : 1,
 						"appversion" : 						{
 							"major" : 8,
-							"minor" : 5,
-							"revision" : 2,
+							"minor" : 6,
+							"revision" : 5,
 							"architecture" : "x64",
 							"modernui" : 1
 						}
@@ -478,8 +506,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 87.241211000000021, 62.0, 87.0, 22.0 ],
-					"text" : "loadmess 500"
+					"patching_rect" : [ 87.241211000000021, 62.0, 90.0, 22.0 ],
+					"text" : "loadmess 1000"
 				}
 
 			}
@@ -506,8 +534,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "multichannelsignal" ],
-					"patching_rect" : [ 52.333344000000011, 276.0, 90.0, 22.0 ],
-					"text" : "mcs.string~ 1 4"
+					"patching_rect" : [ 52.333344000000011, 276.0, 126.0, 22.0 ],
+					"text" : "mcs.modal.string~ 1 4"
 				}
 
 			}
@@ -544,6 +572,22 @@
 				"patchline" : 				{
 					"destination" : [ "obj-6", 0 ],
 					"source" : [ "obj-19", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-15", 1 ],
+					"order" : 1,
+					"source" : [ "obj-2", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-5", 0 ],
+					"order" : 0,
+					"source" : [ "obj-2", 0 ]
 				}
 
 			}
@@ -605,7 +649,7 @@
 		}
 ,
 		"dependency_cache" : [ 			{
-				"name" : "mcs.string~.mxo",
+				"name" : "mcs.modal.string~.mxo",
 				"type" : "iLaX"
 			}
  ],
