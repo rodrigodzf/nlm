@@ -99,5 +99,11 @@ if(APPLE)
             COMMAND "codesign" "--force" "--deep" "-s" "-" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo"
             COMMENT "Codesign external" 
          )
+        add_custom_command(
+            TARGET ${PROJECT_NAME}
+            POST_BUILD
+            COMMAND "xattr" "-d" "-r" "com.apple.quarantine" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo"
+            COMMENT "Remove quarantine attribute"
+        )
     endif()
 endif()

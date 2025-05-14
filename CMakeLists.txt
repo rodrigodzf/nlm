@@ -275,37 +275,6 @@ add_subdirectory(src/maxmsp/mcs.modal.string_tilde)
 add_subdirectory(src/common/vk_utils)
 add_subdirectory(src/common/test_libs)
 add_subdirectory(src/common/magpie)
-# Install configuration
+
 # Install the Max package
-install(
-    DIRECTORY
-    ${CMAKE_CURRENT_SOURCE_DIR}/externals
-    DESTINATION
-    ${CMAKE_CURRENT_SOURCE_DIR}/${THIS_PACKAGE_NAME}
-)
-
-# install the extras directory
-install(
-    DIRECTORY
-    ${CMAKE_CURRENT_SOURCE_DIR}/extras
-    DESTINATION
-    ${CMAKE_CURRENT_SOURCE_DIR}/${THIS_PACKAGE_NAME}
-)
-
-# install the package info, readme and license
-install(
-    FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/package-info.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/README.md
-    ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
-    DESTINATION
-    ${CMAKE_CURRENT_SOURCE_DIR}/${THIS_PACKAGE_NAME}
-)
-
-# Install the help files (uncomment when you have help files)
-# install(
-# FILES
-# ${CMAKE_CURRENT_SOURCE_DIR}/src/maxmsp/modal_resonator/modal_resonator.maxhelp
-# DESTINATION
-# ${CMAKE_CURRENT_SOURCE_DIR}/${THIS_PACKAGE_NAME}/help
-# )
+include(cmake/make_package.cmake)

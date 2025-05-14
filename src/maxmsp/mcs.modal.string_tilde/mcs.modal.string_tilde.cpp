@@ -134,7 +134,8 @@ public:
             }
             
             for (int i = 0; i < m_num_inputs; ++i) {
-                m_force_positions[i] = args[i];
+                // Clamp values between 0 and 1
+                m_force_positions[i] = std::clamp(double(args[i]), 0.0, 1.0);
             }
             
             update_queue.set();
@@ -150,7 +151,8 @@ public:
             }
 
             for (int i = 0; i < m_num_outputs; ++i) {
-                m_readout_positions[i] = args[i];
+                // Clamp values between 0 and 1
+                m_readout_positions[i] = std::clamp(double(args[i]), 0.0, 1.0);
             }
 
             update_queue.set();

@@ -297,8 +297,9 @@ public:
             }
             
             for (int i = 0; i < args.size() / 2; ++i) {
-                m_force_positions_x[i] = args[i * 2];
-                m_force_positions_y[i] = args[i * 2 + 1];
+                // Clamp values between 0 and 1
+                m_force_positions_x[i] = std::clamp(double(args[i * 2]), 0.0, 1.0);
+                m_force_positions_y[i] = std::clamp(double(args[i * 2 + 1]), 0.0, 1.0);
             }
             
             update_queue.set();
@@ -319,8 +320,9 @@ public:
             }
 
             for (int i = 0; i < args.size() / 2; ++i) {
-                m_readout_positions_x[i] = args[i * 2];
-                m_readout_positions_y[i] = args[i * 2 + 1];
+                // Clamp values between 0 and 1
+                m_readout_positions_x[i] = std::clamp(double(args[i * 2]), 0.0, 1.0);
+                m_readout_positions_y[i] = std::clamp(double(args[i * 2 + 1]), 0.0, 1.0);
             }
 
             update_queue.set();

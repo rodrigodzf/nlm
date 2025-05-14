@@ -73,19 +73,25 @@ public:
 
     attribute<numbers> force_position { this, "force_position", {{0.5, 0.5}},
         description {"Force position (0-1)"},
-        range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
+            // Manual clamping of values
+            atoms result;
+            for (auto& a : args)
+                result.push_back(clamp<double>(a, 0.0, 1.0));
             update_queue.set();
-            return { args };
+            return result;
         }}
     };
 
     attribute<numbers> readout_position { this, "readout_position", {{0.5, 0.5}},
         description {"Readout position (0-1)"},
-        range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
+            // Manual clamping of values
+            atoms result;
+            for (auto& a : args)
+                result.push_back(clamp<double>(a, 0.0, 1.0));
             update_queue.set();
-            return { args };
+            return result;
         }}
     };
 
