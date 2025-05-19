@@ -54,14 +54,15 @@ struct AiryCoefficients {
     Matrix coeff2;
     int S; // Number of valid modes used
     Vector auto_vec; // Eigenvalues corresponding to coeffs
+    Matrix coeff_sorted;
 };
 
 AiryCoefficients airy_stress_coefficients(
     int n_psi,
     double Lx, // Need Lx, Ly for int2_mat call inside
     double Ly,
-    const VectorCD& vals,
-    const MatrixCD& vecs
+    const Vector& vals,
+    const Matrix& vecs
 );
 
 
@@ -131,14 +132,17 @@ struct HTensors {
     Tensor3D H2;
 };
 
-HTensors H_tensor_rectangular(
+void H_tensor_rectangular(
     const AiryCoefficients& coeffs,
     int Nphi,
     int Npsi, // Note: Npsi here is the original one, coeffs.S might be different
     double Lx,
     double Ly,
     const Eigen::VectorXi& kx, // Assuming 1-based indices
-    const Eigen::VectorXi& ky  // Assuming 1-based indices
+    const Eigen::VectorXi& ky,  // Assuming 1-based indices
+    Matrix& H0_mat,
+    Matrix& H1_mat,
+    Matrix& H2_mat
 );
 
 
@@ -146,13 +150,14 @@ HTensors H_tensor_rectangular(
 // Main Coupling Matrix Computation
 //----------------------------------------------------------------------------
 
-HTensors compute_coupling_matrix(
+void compute_coupling_matrix(
     int n_psi,
     int n_phi,
     double lx,
     double ly,
     const Eigen::VectorXi& kx_indices, // Assuming 1-based indices
-    const Eigen::VectorXi& ky_indices  // Assuming 1-based indices
+    const Eigen::VectorXi& ky_indices,  // Assuming 1-based indices
+    Matrix& H1
 );
 
 // Add PI constant if not defined by <cmath> or Eigen
