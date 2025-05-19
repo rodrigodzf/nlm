@@ -28,14 +28,29 @@ file(COPY
 )
 
 # Copy the help files
-file(COPY
+# file(COPY
+#     "${CMAKE_CURRENT_SOURCE_DIR}/help/modal.plate~.maxhelp"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/help/modal.string~.maxhelp"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/help/mcs.modal.plate~.maxhelp"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/help/mcs.modal.string~.maxhelp"
+#     DESTINATION
+#     "${PACKAGE_DIR}/help"
+# )
+
+# Create symbolic links to help files
+file(MAKE_DIRECTORY "${PACKAGE_DIR}/help")
+execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
     "${CMAKE_CURRENT_SOURCE_DIR}/help/modal.plate~.maxhelp"
+    "${PACKAGE_DIR}/help/modal.plate~.maxhelp")
+execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
     "${CMAKE_CURRENT_SOURCE_DIR}/help/modal.string~.maxhelp"
+    "${PACKAGE_DIR}/help/modal.string~.maxhelp")
+execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
     "${CMAKE_CURRENT_SOURCE_DIR}/help/mcs.modal.plate~.maxhelp"
+    "${PACKAGE_DIR}/help/mcs.modal.plate~.maxhelp")
+execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
     "${CMAKE_CURRENT_SOURCE_DIR}/help/mcs.modal.string~.maxhelp"
-    DESTINATION
-    "${PACKAGE_DIR}/help"
-)
+    "${PACKAGE_DIR}/help/mcs.modal.string~.maxhelp")
 
 # Copy the docs
 file(COPY
@@ -45,8 +60,17 @@ file(COPY
 )
 
 # Copy the misc files
-file(COPY
+# file(COPY
+#     ${CMAKE_CURRENT_SOURCE_DIR}/misc
+#     DESTINATION
+#     ${PACKAGE_DIR}
+# )
+
+# Create symbolic link to misc folder
+execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
     ${CMAKE_CURRENT_SOURCE_DIR}/misc
-    DESTINATION
-    ${PACKAGE_DIR}
-)
+    ${PACKAGE_DIR}/misc)
+
+# execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink 
+# ${CMAKE_CURRENT_SOURCE_DIR}/yaml
+# ${PACKAGE_DIR}/yaml)

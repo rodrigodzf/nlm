@@ -1,0 +1,9 @@
+poisson_ratio: 0.3
+tension: 0
+fdependent_loss: 0.001
+findependent_loss: 0.001
+density: 7850
+youngs_modulus: 30
+lx: 0.1
+ly: 0.3
+thickness: 0.0005

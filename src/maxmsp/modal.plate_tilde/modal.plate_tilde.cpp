@@ -24,7 +24,7 @@ using Matrix = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 
 class plate_tilde : public object<plate_tilde>, public sample_operator<1, 1> {
 public:
-    MIN_DESCRIPTION	{ "A modal plate." };
+    MIN_DESCRIPTION	{ "A non-linear modal plate." };
     MIN_TAGS		{ "audio" };
     MIN_AUTHOR		{ "Rodrigo Diaz" };
     MIN_RELATED		{ "biquad~" };
@@ -38,33 +38,45 @@ public:
             } else {
                 m_model_type = "berger";
             }
-        } else {
-            m_model_type = "berger";  // Default model type
         }
-        
-        // Update the attribute
-        model_type = m_model_type;
 
         cout << "Model type: " << m_model_type << endl;
 
-        // Default number of modes for berger model
-        if (m_model_type == "berger") {
-            m_n_phi = 32;
+        // args[1] is the number of n_phi
+        if (args.size() > 1) {
+            m_n_phi = static_cast<int>(args[1]);
+            cout << "n_phi: " << m_n_phi << endl;
         }
+        // args[2] is the number of n_psi
+        if (args.size() > 2) {
+            m_n_psi = static_cast<int>(args[2]);
+            cout << "n_psi: " << m_n_psi << endl;
+        }
+
+        // Update the attribute
+        // model_type = m_model_type;
 
         m_lambda_mu = Vector::Zero(m_n_phi);
         m_gamma2_mu = Vector::Zero(m_n_phi);
     }
 
-    inlet<>  input    { this, "(signal) Input to the modal resonator", "signal" };
+    inlet<>  left    { this, "(signal) Input to the modal resonator", "signal" };
+    inlet<>  right   { this, "(dictionary) Dictionary with the parameters", "dictionary" };
     outlet<> output   { this, "(signal) Output from the modal resonator", "signal" };
 
-    attribute<symbol> model_type { this, "model_type", 
-        title {"Model Type"},
-        description {"Plate model type (vk or berger)"},
-        getter { MIN_GETTER_FUNCTION { return { m_model_type }; } },
-        readonly { true }
+    argument<symbol> model { this, "model", "Plate model type (vk or berger)", true,
+        MIN_ARGUMENT_FUNCTION {
+            m_model_type = std::string(arg);
+        }
     };
+    
+
+    // attribute<symbol> model_type { this, "model_type", 
+    //     title {"Model Type"},
+    //     description {"Plate model type (vk or berger)"},
+    //     getter { MIN_GETTER_FUNCTION { return { m_model_type }; } },
+    //     readonly { true }
+    // };
 
     // Single update queue for all parameter changes
     queue<> update_queue {this, MIN_FUNCTION {
@@ -105,7 +117,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> thickness { this, "thickness", 5e-4,
+    attribute<number, threadsafe::no, limit::clamp> thickness { this, "thickness", 1.9e-4,
         description {"Thickness in meters"},
         range { 1e-4, 1e-2 },
         setter { MIN_FUNCTION {
@@ -114,12 +126,12 @@ public:
         }}
     };
     
-    attribute<number, threadsafe::no, limit::clamp> lx { this, "lx", 0.2,
+    attribute<number, threadsafe::no, limit::clamp> lx { this, "lx", 0.4,
         description {"Length in meters"},
         range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
             // Reset eigenmode calculation flag when length changes
-            if (m_model_type == "berger" && !m_data_loaded) {
+            if (!m_data_loaded) {
                 m_eigenmode_calculation_complete = false;
             }
             update_queue.set();
@@ -127,12 +139,12 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> ly { this, "ly", 0.3,
+    attribute<number, threadsafe::no, limit::clamp> ly { this, "ly", 0.5,
         description {"Width in meters"},
         range { 0.001, 1.0 },
         setter { MIN_FUNCTION {
             // Reset eigenmode calculation flag when width changes
-            if (m_model_type == "berger" && !m_data_loaded) {
+            if (!m_data_loaded) {
                 m_eigenmode_calculation_complete = false;
             }
             update_queue.set();
@@ -140,7 +152,7 @@ public:
         }}
     };
 
-    attribute<number> density { this, "density", 7850,
+    attribute<number> density { this, "density", 3000,
         description {"Density in kg/m^3"},
         range { 1000.0, 10000.0 },
         setter { MIN_FUNCTION {
@@ -149,16 +161,16 @@ public:
         }}
     };
 
-    attribute<number> youngs_modulus { this, "youngs_modulus", 2000,
+    attribute<number> youngs_modulus { this, "youngs_modulus", 3.5,
         description {"Young's modulus in GPa"},
-        range { 100.0, 10000.0 },
+        range { 1.0, 10000.0 },
         setter { MIN_FUNCTION {
             update_queue.set();
             return { args[0] };
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "frequency_independent_loss", 0.01,
+    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "findependent_loss", 0.01,
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -167,7 +179,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "frequency_dependent_loss", 0.01,
+    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "fdependent_loss", 0.008,
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -176,9 +188,9 @@ public:
         }}
     };
 
-    attribute<number> surface_tension { this, "surface_tension", 0.0,
-        description {"Surface tension in N/m"},
-        range { 0.0, 1000.0 },
+    attribute<number> tension { this, "tension", 3000.0,
+        description {"Tension in N/m"},
+        range { 0.0, 50000.0 },
         setter { MIN_FUNCTION {
             update_queue.set();
             return { args[0] };
@@ -246,6 +258,8 @@ public:
             m_selected_indices_y = matioCpp::to_eigen(selected_indices_y);
 
             m_data_loaded = true;
+            lx.disable(true);
+            ly.disable(true);
             m_readout_weights_lerp.resize(m_n_phi, 441);
             m_current_readout_weights.resize(m_n_phi);
 
@@ -260,36 +274,82 @@ public:
         }
     };
 
-    message<> set_num_modes { this, "set_num_modes",
+    message<> set_n_phi { this, "set_n_phi",
         [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
             if (args.size() < 1) {
-                cout << "set_num_modes: no mode count provided" << endl;
+                cout << "set_n_phi: no mode count provided" << endl;
                 return {};
             }
 
             int num_modes = args[0];
             if (num_modes < 1) {
-                cout << "set_num_modes: mode count must be positive" << endl;
+                cout << "set_n_phi: mode count must be positive" << endl;
                 return {};
             }
 
             // Reset eigenmode calculation flag when number of modes changes
-            if (m_model_type == "berger" && !m_data_loaded && m_n_phi != num_modes) {
+            if (!m_data_loaded && m_n_phi != num_modes) {
                 m_eigenmode_calculation_complete = false;
             }
             
             m_n_phi = num_modes;
-            cout << "Number of modes set to " << m_n_phi << endl;
+            cout << "n_phi set to " << m_n_phi << endl;
             
             // If using berger model, recalculate modes
-            if (m_model_type == "berger") {
-                update_queue.set();
-            }
+            update_queue.set();
             
             return {};
         }
     };
+
+    message<> set_n_psi { this, "set_n_psi",
+        [this](const c74::min::atoms& args, const int inlet) -> c74::min::atoms {
+            if (args.size() < 1) {
+                cout << "set_n_psi: no mode count provided" << endl;
+                return {};
+            }
+
+            int num_modes = args[0];
+            if (num_modes < 1) {
+                cout << "set_n_psi: mode count must be positive" << endl;
+                return {};
+            }
+
+            if (!m_data_loaded && m_n_psi != num_modes) {
+                m_eigenmode_calculation_complete = false;
+            }
+
+            m_n_psi = num_modes;
+            cout << "n_psi set to " << m_n_psi << endl;
+
+            update_queue.set();
+            return {};
+        }
+    };
     
+    message<> dictionary { this, "dictionary", "dictionary with the parameters",
+        MIN_FUNCTION {
+            try {
+                dict d = {args[0]};
+
+                // set the parameters from the dictionary
+                poisson_ratio = d["poisson_ratio"];
+                thickness = d["thickness"];
+                lx = d["lx"];
+                ly = d["ly"];
+                density = d["density"];
+                youngs_modulus = d["youngs_modulus"];
+                frequency_independent_loss = d["findependent_loss"];
+                frequency_dependent_loss = d["fdependent_loss"];
+                tension = d["tension"];
+            }
+            catch (std::exception& e) {
+                cerr << e.what() << endl;
+            }
+            return {};
+        }
+    };
+
     message<> info { this, "info",
         MIN_FUNCTION {
             std::stringstream ss;
@@ -300,7 +360,7 @@ public:
                << "Density: " << density << " kg/m³" << '\n'
                << "Young's modulus: " << youngs_modulus << " GPa" << '\n'
                << "Poisson's ratio: " << poisson_ratio << '\n'
-               << "Surface tension: " << surface_tension << " N/m" << '\n'
+               << "Surface tension: " << tension << " N/m" << '\n'
                << "Loss parameters: " << frequency_independent_loss << " (freq. indep.), " 
                  << frequency_dependent_loss << " (freq. dep.)" << '\n'
                << "Sampling rate: " << samplerate() << " Hz" << '\n'
@@ -309,6 +369,15 @@ public:
                << "Readout position: " << readout_position[0] << " " << readout_position[1] << '\n';
             ss << '\n';
             cout << ss.str() << endl;
+            return {};
+        }
+    };
+
+    message<> reset_coefficients { this, "reset_coefficients",
+        MIN_FUNCTION {
+            std::unique_lock<std::mutex> lock {m_coeff_mutex};
+            m_parallel_filter.reset();
+            cout << "Reset parallel filter state" << endl;
             return {};
         }
     };
@@ -349,10 +418,6 @@ private:
     
     // Unified function to update all parameters
     void update_all_parameters() {
-        // Can't update VK model without data loaded from file
-        if (m_model_type == "vk" && !m_data_loaded) {
-            return;
-        }
 
         std::unique_lock<std::mutex> lock {m_coeff_mutex};
         
@@ -365,7 +430,7 @@ private:
         m_plate_parameters.E = youngs_modulus * 1e9;
         m_plate_parameters.d1 = frequency_independent_loss;
         m_plate_parameters.d3 = frequency_dependent_loss;
-        m_plate_parameters.Ts0 = surface_tension;
+        m_plate_parameters.Ts0 = tension;
         
         // For berger model, initialize vectors if needed
         {
@@ -414,7 +479,7 @@ private:
                     m_selected_indices_y(i) = selected_indices(i, 1);
                 }
                 
-                cout << "Berger model: calculated " << m_n_phi << " modes" << endl;
+                // cout << "Berger model: calculated " << m_n_phi << " modes" << endl;
 
                 if (m_model_type == "vk") {
 
@@ -431,6 +496,11 @@ private:
                     // reshape the H1 tensor to (n_psi * n_phi, n_phi)
                     m_H_original = Eigen::Map<const Matrix>(m_H_original.transpose().data(), m_n_psi * m_n_phi, m_n_phi);
 
+                    cout << "Von Karman model: calculated for " << m_n_psi << " n_psi and " << m_n_phi << " n_phi" << endl;
+
+                }
+                else if (m_model_type == "berger") {
+                    cout << "Berger model: calculated for " << m_n_phi << " modes" << endl;
                 }
                 
                 // Mark eigenmode calculation as complete
@@ -502,7 +572,7 @@ private:
     double m_interpolation_time_ms = 10.0;
     bool m_initialized = false;
     int m_n_psi = 10;
-    int m_n_phi = 10;
+    int m_n_phi = 64;
     
     std::mutex m_coeff_mutex;
     

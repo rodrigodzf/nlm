@@ -1,9 +1,9 @@
-poisson_ratio: 0.3
-surface_tension: 3000
+poisson_ratio: 0.35
+tension: 2000
 fdependent_loss: 0.008
-findependent_loss: 0.01
-density: 3000
+findependent_loss: 0.32
+density: 1380 # this is mass density not surface density
 youngs_modulus: 3.5
 lx: 0.4
-ly: 0.5
+ly: 0.7
 thickness: 0.00019

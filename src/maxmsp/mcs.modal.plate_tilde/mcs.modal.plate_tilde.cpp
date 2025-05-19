@@ -129,7 +129,7 @@ public:
         }}
     };
 
-    attribute<number> density { this, "density", 7850,
+    attribute<number> density { this, "density", 3000,
         description {"Density in kg/m^3"},
         range { 1000.0, 10000.0 },
         setter { MIN_FUNCTION {
@@ -147,7 +147,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "frequency_independent_loss", 0.01,
+    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "findependent_loss", 0.01,
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -156,7 +156,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "frequency_dependent_loss", 0.01,
+    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "fdependent_loss", 0.008,
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -165,9 +165,9 @@ public:
         }}
     };
 
-    attribute<number> surface_tension { this, "surface_tension", 0.0,
-        description {"Surface tension in N/m"},
-        range { 0.0, 1000.0 },
+    attribute<number> tension { this, "tension", 3000.0,
+        description {"Tension in N/m"},
+        range { 0.0, 50000.0 },
         setter { MIN_FUNCTION {
             update_queue.set();
             return { args[0] };
@@ -264,7 +264,7 @@ public:
                << "Density: " << density << " kg/m³" << '\n'
                << "Young's modulus: " << youngs_modulus << " GPa" << '\n'
                << "Poisson's ratio: " << poisson_ratio << '\n'
-               << "Surface tension: " << surface_tension << " N/m" << '\n'
+               << "Surface tension: " << tension << " N/m" << '\n'
                << "Loss parameters: " << frequency_independent_loss << " (freq. indep.), " 
                  << frequency_dependent_loss << " (freq. dep.)" << '\n'
                << "Sampling rate: " << samplerate() << " Hz" << '\n'
@@ -360,6 +360,15 @@ public:
         }
     };
 
+    message<> reset_coefficients { this, "reset_coefficients",
+        MIN_FUNCTION {
+            std::unique_lock<std::mutex> lock {m_coeff_mutex};
+            m_parallel_filter.reset();
+            cout << "Reset parallel filter state" << endl;
+            return {};
+        }
+    };
+
     void operator()(audio_bundle input, audio_bundle output) {
         if (!m_initialized) {
             for (int ch = 0; ch < output.channel_count(); ++ch)
@@ -421,7 +430,7 @@ private:
         m_plate_parameters.E = youngs_modulus * 1e9;
         m_plate_parameters.d1 = frequency_independent_loss;
         m_plate_parameters.d3 = frequency_dependent_loss;
-        m_plate_parameters.Ts0 = surface_tension;
+        m_plate_parameters.Ts0 = tension;
         
         // For berger model, initialize vectors if needed
         if (m_model_type == "berger") {

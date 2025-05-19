@@ -18,7 +18,9 @@
 	"website" : "https://github.com/rodrigodzf/modal_tilde",
 	"filelist" : {
         "misc" : [
-            "n_phi_64_n_psi_10_l1_0.3_l2_0.4.mat"
+            "n_phi_64_n_psi_10_l1_0.3_l2_0.4.mat",
+            "mylar.yaml",
+            "steel.yaml"
         ]
     }
 }

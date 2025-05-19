@@ -2,6 +2,16 @@
 
 #include <Eigen/Dense>
 
+
+template <typename DerivedV>
+inline void clip_inplace(
+          Eigen::MatrixBase<DerivedV>& v,
+          const double min,
+          const double max)
+{
+  v = v.cwiseMin(max).cwiseMax(min);
+}
+
 template <typename T>
 class ParallelFilter
 {
@@ -64,12 +74,26 @@ class ParallelFilter
             }
             
             // Modal update
+            // clip_inplace(m_q, -100, 100);
+
             m_q_next.noalias() = m_B.cwiseProduct(m_q) +
                                  m_C.cwiseProduct(m_q_prev) +
                                  m_A_inv.cwiseProduct(input - m_nl);
 
+            // Clip the output to avoid overflow - using same scale as input
+
             m_q_prev = m_q;
             m_q = m_q_next;
+        }
+
+        void reset() {
+            if (!m_initialized) {
+                return;
+            }
+            m_q.setZero();
+            m_q_prev.setZero();
+            m_q_next.setZero();
+            m_nl.setZero();
         }
 
     private:

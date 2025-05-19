@@ -278,4 +278,4 @@ add_subdirectory(src/common/magpie)
 add_subdirectory(src/common/coupling)
 
 # Install the Max package
-# include(cmake/make_package.cmake)
+include(cmake/make_package.cmake)

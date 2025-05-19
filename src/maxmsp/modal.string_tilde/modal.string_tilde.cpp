@@ -96,7 +96,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "frequency_independent_loss", 8e-5,
+    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "findependent_loss", 8e-5,
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -105,9 +105,18 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "frequency_dependent_loss", 1.4e-5,
+    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "fdependent_loss", 3.4e-5,
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
+        setter { MIN_FUNCTION {
+            update_queue.set();
+            return { args[0] };
+        }}
+    };
+
+    attribute<number> moment_of_inertia { this, "moment_of_inertia", 0.141e-12,
+        description {"Moment of inertia in m^4"},
+        range { 1e-15, 1e-10 },
         setter { MIN_FUNCTION {
             update_queue.set();
             return { args[0] };
@@ -138,7 +147,16 @@ public:
             return {};
         }
     };
-    
+
+    message<> reset_coefficients { this, "reset_coefficients",
+        MIN_FUNCTION {
+            std::unique_lock<std::mutex> lock {m_coeff_mutex};
+            m_parallel_filter.reset();
+            cout << "Reset parallel filter state" << endl;
+            return {};
+        }
+    };
+
     sample operator()(sample input) {
         if (!m_initialized) {
             return 0.0;
@@ -183,7 +201,7 @@ private:
         m_string_parameters.d1 = frequency_independent_loss;
         m_string_parameters.d3 = frequency_dependent_loss;
         m_string_parameters.Ts0 = tension;
-        
+        m_string_parameters.I = moment_of_inertia;
         // Calculate modal coefficients
         int n_mode_long = static_cast<int>(n_modes);
         m_selected_indices = Eigen::VectorXd::LinSpaced(n_mode_long, 1, n_mode_long);

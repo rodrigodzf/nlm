@@ -90,7 +90,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "frequency_independent_loss", 8e-5,
+    attribute<number, threadsafe::no, limit::clamp> frequency_independent_loss { this, "findependent_loss", 8e-5,
         description {"Frequency independent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -99,7 +99,7 @@ public:
         }}
     };
 
-    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "frequency_dependent_loss", 1.4e-5,
+    attribute<number, threadsafe::no, limit::clamp> frequency_dependent_loss { this, "fdependent_loss", 1.4e-5,
         description {"Frequency dependent loss"},
         range { 0.0, 1.0 },
         setter { MIN_FUNCTION {
@@ -156,6 +156,15 @@ public:
             }
 
             update_queue.set();
+            return {};
+        }
+    };
+
+    message<> reset_coefficients { this, "reset_coefficients",
+        MIN_FUNCTION {
+            std::unique_lock<std::mutex> lock {m_coeff_mutex};
+            m_parallel_filter.reset();
+            cout << "Reset parallel filter state" << endl;
             return {};
         }
     };

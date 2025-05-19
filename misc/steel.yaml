@@ -1,5 +1,5 @@
 poisson_ratio: 0.3
-surface_tension: 0
+tension: 0
 fdependent_loss: 0.008
 findependent_loss: 0.01
 density: 7850
