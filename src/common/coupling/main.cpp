@@ -1,4 +1,4 @@
-#include "coupling.h"
+#include "CouplingAnalytical.h"
 #include <iostream>
 #include <Eigen/src/Core/Matrix.h>
 #include <matioCpp/matioCpp.h>
@@ -7,7 +7,7 @@
 int main(int argc, char *argv[])
 {
     int n_psi = 10;
-    int n_phi = 10;
+    int n_phi = 100;
     double lx = 0.4;
     double ly = 0.7;
 

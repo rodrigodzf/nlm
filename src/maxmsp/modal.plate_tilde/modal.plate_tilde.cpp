@@ -13,8 +13,9 @@
 #include <vk_utils/FTM.h>
 #include <vk_utils/LinearInterpolator.h>
 #include "version.h"
-#include "vk_utils/vk_utils.h"
+#include <vk_utils/vk_utils.h>
 #include <vk_utils/ParallelFilter.h>
+#include <vk_utils/CouplingAnalytical.h>
 
 using namespace c74::min;
 
@@ -367,7 +368,7 @@ private:
         m_plate_parameters.Ts0 = surface_tension;
         
         // For berger model, initialize vectors if needed
-        if (m_model_type == "berger") {
+        {
             // Initialize vectors for all berger model cases
             if (m_readout_weights.size() != m_n_phi) {
                 m_readout_weights_lerp.resize(m_n_phi, 441);
@@ -414,12 +415,29 @@ private:
                 }
                 
                 cout << "Berger model: calculated " << m_n_phi << " modes" << endl;
+
+                if (m_model_type == "vk") {
+
+                    compute_coupling_matrix(
+                        m_n_psi,
+                        m_n_phi,
+                        m_plate_parameters.l1,
+                        m_plate_parameters.l2,
+                        m_selected_indices_x.cast<int>(),
+                        m_selected_indices_y.cast<int>(),
+                        m_H_original
+                    );
+
+                    // reshape the H1 tensor to (n_psi * n_phi, n_phi)
+                    m_H_original = Eigen::Map<const Matrix>(m_H_original.transpose().data(), m_n_psi * m_n_phi, m_n_phi);
+
+                }
                 
                 // Mark eigenmode calculation as complete
                 m_eigenmode_calculation_complete = true;
             }
         }
-        
+
         // Step 2: Calculate modal coefficients
         m_omega_mu_squared = stiffness_term<double>(m_plate_parameters, m_lambda_mu);
         m_gamma2_mu = damping_term<double>(m_plate_parameters, m_lambda_mu);
