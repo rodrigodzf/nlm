@@ -1,8 +1,0 @@
-poisson_ratio: 0.3
-tension: 60.97
-fdependent_loss: 3.4e-5
-findependent_loss: 8e-5
-density: 1140
-youngs_modulus: 5.4
-lx: 0.75
-cross_sectional_area: 0.5188e-6
