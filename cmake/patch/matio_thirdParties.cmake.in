@@ -1,0 +1,15 @@
+# Modified macro to use zlibstatic directly
+macro(MATIO_CREATE_ZLIB target)
+    message(STATUS "MATIO using static zlibstatic library")
+    add_library(MATIO::ZLIB INTERFACE IMPORTED)
+    set_target_properties(MATIO::ZLIB PROPERTIES INTERFACE_LINK_LIBRARIES zlibstatic)
+    set(ZLIB_FOUND TRUE)
+endmacro()
+
+if(MATIO_WITH_ZLIB)
+    # Skip all the complex finding logic and just use our static zlibstatic library
+    MATIO_CREATE_ZLIB(zlibstatic)
+    if(ZLIB_FOUND)
+        set(HAVE_ZLIB 1)
+    endif()
+endif() 
