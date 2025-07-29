@@ -1,0 +1,8 @@
+cross_sectional_area: 1.54
+lx: 1.08
+moment_of_inertia: 4.12
+density: 57000
+youngs_modulus: 19.5
+findependent_loss: 1.3e-1
+fdependent_loss: 5.0e-5
+tension: 2104

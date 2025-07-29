@@ -1,0 +1,9 @@
+thickness: 0.00019
+lx: 0.4
+ly: 0.7
+density: 1380 # this is mass density not surface density
+youngs_modulus: 3.5
+poisson_ratio: 0.35
+fdependent_loss: 0.008
+findependent_loss: 0.32
+tension: 2000
