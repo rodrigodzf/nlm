@@ -1,5 +1,4 @@
-# Define common compile options
-set(COMMON_RELEASE_OPTIONS -O3 -march=native -DNDEBUG -DEIGEN_USE_BLAS)
+set(COMMON_RELEASE_OPTIONS -O3 -DNDEBUG -DEIGEN_USE_BLAS)
 
 # Compiler-specific options
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

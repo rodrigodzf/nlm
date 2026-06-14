@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(modalsim VERSION 0.1.0)
+project(modalsim VERSION 1.0.2)
 message(STATUS "Version: ${PROJECT_VERSION}")
 
 # We need to set a version for the package because the min-pretarget.cmake
@@ -9,6 +9,7 @@ set(PACKAGE_VERSION ${PROJECT_VERSION})
 # Extract package name from directory
 string(REGEX REPLACE "(.*)/" "" THIS_PACKAGE_NAME "${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "This package name is ${THIS_PACKAGE_NAME}")
+set(PACKAGE_NAME ${THIS_PACKAGE_NAME})
 
 # Enable testing support
 enable_testing()
@@ -257,7 +258,10 @@ add_subdirectory(src/maxmsp/mcs.nlm.plate_tilde)
 add_subdirectory(src/maxmsp/mcs.nlm.string_tilde)
 add_subdirectory(src/common/vk_utils)
 add_subdirectory(src/common/test_libs)
-add_subdirectory(src/common/magpie)
+option(BUILD_MAGPIE "Build the magpie ARPACK utility" OFF)
+if(BUILD_MAGPIE)
+    add_subdirectory(src/common/magpie)
+endif()
 # add_subdirectory(src/common/coupling)
 
 # Install the Max package

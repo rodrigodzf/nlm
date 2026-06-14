@@ -1,26 +1,20 @@
 {
 	"author" : "anonymous",
 	"description" : "Non-linear modal models for Max",
+	"displayname" : "NLM",
 	"homepatcher" : "",
 	"max_version_min" : "8.0", "max_version_max" : "none",
-	"name" : "@C74_PACKAGE_NAME@",
+	"name" : "@PACKAGE_NAME@",
 	"os" : {
 		"macintosh" : {
-			"platform" : [ "x64", "arm64" ],
+			"platform" : [ "x64", "aarch64" ],
 			"min_version" : "none"
-		},
+		}
 	},
 	"package_extra" : {
 		"copyright" : "Copyright (c) 2025 anonymous"
 	},
 	"tags" : ["physical modeling", "modal synthesis"],
-	"version" : "@GIT_VERSION_MAJ@.@GIT_VERSION_MIN@.@GIT_VERSION_SUB@",
-	"website" : "",
-	"filelist" : {
-        "misc" : [
-            "n_phi_64_n_psi_10_l1_0.3_l2_0.4.mat",
-            "mylar.yaml",
-            "steel.yaml"
-        ]
-    }
+	"version" : "@PACKAGE_VERSION@",
+	"website" : ""
 }

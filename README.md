@@ -23,12 +23,18 @@ Physical modelling synthesis creates sound by simulating the physical properties
 
 > **Note:** These externals have so far only been tested on macOS.
 
-1. Download the latest release from the releases page
+1. Download the latest `nlm_v*.zip` package from the releases page
 2. Unzip the package
-3. Place the unzipped folder in your Max Packages folder:
-   - macOS: `~/Documents/Max 8/Packages`
-   - Windows: `C:\Users\<username>\Documents\Max 8\Packages`
+3. Place the unzipped `nlm` folder in your Max Packages folder:
+   - Max 9 on macOS: `~/Documents/Max 9/Packages`
+   - Max 8 on macOS: `~/Documents/Max 8/Packages`
 4. Restart Max
+
+If Max still reports `nlm.string~` or `nlm.plate~` as missing after installing the package, remove macOS quarantine attributes from the downloaded package and restart Max:
+
+```bash
+xattr -dr com.apple.quarantine ~/Documents/Max\ 9/Packages/nlm
+```
 
 ## Building from Source
 
@@ -41,8 +47,13 @@ Physical modelling synthesis creates sound by simulating the physical properties
 ### Install dependencies
 
 ```bash
-brew install libmatio
-brew install eigen
+brew install libmatio eigen arpack
+```
+
+If Eigen fails to compile in `ArpackSelfAdjointEigenSolver.h`, update Eigen:
+
+```bash
+brew upgrade eigen
 ```
 
 ### Build Instructions
@@ -73,3 +84,13 @@ brew install eigen
    ```bash
    cmake --install .
    ```
+
+### Release Package
+
+To build a universal macOS package for release:
+
+```bash
+./build.sh
+```
+
+Check that every external reports both `x86_64` and `arm64`, then upload the generated `nlm_v*.zip` file from the repository root to the GitHub release.

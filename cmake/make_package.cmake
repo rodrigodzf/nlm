@@ -1,5 +1,12 @@
 set(PACKAGE_NAME "nlm")
 set(PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${PACKAGE_NAME}")
+set(PACKAGE_INFO_JSON "${CMAKE_CURRENT_BINARY_DIR}/package-info.json")
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/package-info.json.in"
+    "${PACKAGE_INFO_JSON}"
+    @ONLY
+)
 
 # delete everything in the package directory
 file(REMOVE_RECURSE ${PACKAGE_DIR})
@@ -48,6 +55,18 @@ handle_file_operation("docs" "docs")
 handle_file_operation("misc" "misc")
 handle_file_operation("help" "help")
 
+if(TARGET copy_externals)
+    foreach(EXTERNAL_TARGET
+        nlm.plate_tilde
+        nlm.string_tilde
+        mcs.nlm.plate_tilde
+        mcs.nlm.string_tilde
+    )
+        if(TARGET ${EXTERNAL_TARGET})
+            add_dependencies(copy_externals ${EXTERNAL_TARGET})
+        endif()
+    endforeach()
+endif()
 
 # Handle individual files
 if(USE_SYMLINKS)
@@ -60,7 +79,7 @@ if(USE_SYMLINKS)
         COMMAND ${CMAKE_COMMAND} -E remove "${PACKAGE_DIR}/LICENSE" || true
         # Create symbolic links
         COMMAND ${CMAKE_COMMAND} -E create_symlink
-            "${CMAKE_CURRENT_SOURCE_DIR}/package-info.json"
+            "${PACKAGE_INFO_JSON}"
             "${PACKAGE_DIR}/package-info.json"
         COMMAND ${CMAKE_COMMAND} -E create_symlink
             "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
@@ -76,7 +95,7 @@ else()
         COMMAND ${CMAKE_COMMAND} -E make_directory "${PACKAGE_DIR}"
         # Copy files
         COMMAND ${CMAKE_COMMAND} -E copy
-            "${CMAKE_CURRENT_SOURCE_DIR}/package-info.json"
+            "${PACKAGE_INFO_JSON}"
             "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
             "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
             "${PACKAGE_DIR}"

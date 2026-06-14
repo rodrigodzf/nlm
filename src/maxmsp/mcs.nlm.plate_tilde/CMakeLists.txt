@@ -91,18 +91,10 @@ include(${C74_MIN_API_DIR}/script/min-posttarget.cmake)
 
 # Copy libmatio from homebrew to the external's MacOS directory
 if(APPLE)
-    if (CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
-        add_custom_command( 
-            TARGET ${PROJECT_NAME} 
-            POST_BUILD 
-            COMMAND "codesign" "--force" "--deep" "-s" "-" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo"
-            COMMENT "Codesign external" 
-        )
-        add_custom_command(
-            TARGET ${PROJECT_NAME}
-            POST_BUILD
-            COMMAND "xattr" "-d" "-r" "com.apple.quarantine" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo"
-            COMMENT "Remove quarantine attribute"
-        )
-    endif()
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND "codesign" "--force" "--deep" "-s" "-" "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${${PROJECT_NAME}_EXTERN_OUTPUT_NAME}.mxo"
+        COMMENT "Codesign external"
+    )
 endif()
